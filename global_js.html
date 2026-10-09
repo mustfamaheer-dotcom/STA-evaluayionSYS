@@ -1,0 +1,47 @@
+<script>
+const router = {
+  navigate: function(pageName, displayTitle) {
+    this.showLoader(true);
+    document.getElementById('page-title').innerText = displayTitle;
+
+    google.script.run
+      .withSuccessHandler((htmlContent) => {
+         document.getElementById('app-canvas').innerHTML = htmlContent;
+         this.showLoader(false);
+      })
+      .withFailureHandler((err) => {
+         document.getElementById('app-canvas').innerHTML = `
+           <div class="bg-red-50 border border-red-200 text-red-700 p-4 rounded-lg shadow-sm">
+              <strong class="font-bold block">فشل في تحميل الصفحة:</strong>
+              <span class="text-sm font-mono">${err.message}</span>
+           </div>`;
+         this.showLoader(false);
+      })
+      .loadPageView(pageName);
+  },
+
+  showLoader: function(shouldShow) {
+    const loader = document.getElementById('ui-loader');
+    if (shouldShow) { loader.classList.remove('hidden'); } else { loader.classList.add('hidden'); }
+  },
+
+  initializePermissions: function() {
+    google.script.run.withSuccessHandler((profile) => {
+       const navItems = document.querySelectorAll('#sidebar-menu .nav-item');
+       navItems.forEach(item => {
+         const requiredPerm = item.getAttribute('data-perm');
+         if(profile.role === 'ROLE_SUPER_ADMIN' || profile.role === 'مدير النظام' || profile.permissions.includes(requiredPerm)) {
+           item.classList.remove('hidden');
+         } else {
+           item.remove();
+         }
+       });
+    }).getUserRolesAndPermissions('<?= currentUserEmail ?>');
+  }
+};
+
+window.addEventListener('DOMContentLoaded', () => {
+   router.initializePermissions();
+   router.navigate('dashboard', 'نظرة عامة على الأداء');
+});
+</script>

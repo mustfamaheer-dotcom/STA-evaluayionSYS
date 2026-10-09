@@ -1,0 +1,337 @@
+<div id="da-root" dir="rtl" class="space-y-6">
+  <!-- Header -->
+  <div style="background:linear-gradient(135deg,#1e293b 0%,#334155 100%);border-radius:16px;padding:22px 28px;color:#fff;position:relative;overflow:hidden;">
+    <div style="position:absolute;top:-30px;left:-30px;width:120px;height:120px;border-radius:50%;background:rgba(255,255,255,0.05);"></div>
+    <div style="display:flex;align-items:center;gap:16px;position:relative;z-index:1;flex-wrap:wrap;">
+      <div style="width:48px;height:48px;border-radius:12px;background:rgba(255,255,255,0.12);display:flex;align-items:center;justify-content:center;border:1px solid rgba(255,255,255,0.15);"><i class="fas fa-chart-line" style="font-size:1.2rem;color:#38bdf8;"></i></div>
+      <div style="flex:1;min-width:240px;">
+        <div style="font-size:1.15rem;font-weight:800;letter-spacing:0.2px;">تحليلات البيانات — مجموعة البيانات التاريخية</div>
+        <div style="font-size:0.78rem;color:rgba(255,255,255,0.7);margin-top:3px;">تحليل معزول لملف <code style="background:rgba(255,255,255,0.12);padding:2px 6px;border-radius:6px;">eval-sum.xlsx</code> &nbsp;•&nbsp; 88 معلم • 6 مجالات • لا يؤثر على لوحة التحكم</div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button onclick="da.exportCSV()" class="btn-primary" style="width:auto;padding:8px 14px;font-size:0.75rem;background:rgba(255,255,255,0.14);border:1px solid rgba(255,255,255,0.18);backdrop-filter:blur(8px);"><i class="fas fa-download" style="margin-left:6px;"></i>تصدير CSV</button>
+        <button onclick="da.refresh()" class="btn-primary" style="width:auto;padding:8px 14px;font-size:0.75rem;"><i class="fas fa-sync" style="margin-left:6px;"></i>تحديث</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Filters -->
+  <div class="card" style="padding:16px 20px;">
+    <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:end;">
+      <div style="flex:1;min-width:160px;">
+        <label class="form-label" style="margin-bottom:6px;">القسم</label>
+        <select id="da-filter-dept" class="form-input" onchange="da.applyFilters()"><option value="">جميع الأقسام</option></select>
+      </div>
+      <div style="flex:1;min-width:160px;">
+        <label class="form-label" style="margin-bottom:6px;">المدرسة / الفرع</label>
+        <select id="da-filter-school" class="form-input" onchange="da.applyFilters()"><option value="">جميع المدارس</option></select>
+      </div>
+      <div style="flex:1;min-width:180px;">
+        <label class="form-label" style="margin-bottom:6px;">بحث (الاسم / الرقم الوظيفي)</label>
+        <input id="da-search" class="form-input" placeholder="مثال: أحمد أو 16942" oninput="da.applyFilters()" />
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button onclick="da.clearFilters()" style="padding:10px 16px;border-radius:10px;border:1px solid var(--glass-border);background:rgba(255,255,255,0.6);font-size:0.8rem;font-weight:600;color:var(--text-secondary);cursor:pointer;">مسح الفلاتر</button>
+        <div id="da-filter-count" style="padding:10px 14px;border-radius:10px;background:rgba(211,47,47,0.08);border:1px solid rgba(211,47,47,0.15);font-size:0.78rem;font-weight:700;color:#b91c1c;white-space:nowrap;">88 سجل</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- KPIs -->
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;" id="da-kpis">
+    <div class="stat-card"><div class="skel" style="width:100%;height:80px;"></div></div>
+    <div class="stat-card"><div class="skel" style="width:100%;height:80px;"></div></div>
+    <div class="stat-card"><div class="skel" style="width:100%;height:80px;"></div></div>
+    <div class="stat-card"><div class="skel" style="width:100%;height:80px;"></div></div>
+    <div class="stat-card"><div class="skel" style="width:100%;height:80px;"></div></div>
+  </div>
+
+  <!-- Insights -->
+  <div id="da-insights" style="display:grid;gap:10px;"></div>
+
+  <!-- Charts Row 1 -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+    <div class="card">
+      <div class="card-header"><span class="card-title"><i class="fas fa-bullseye" style="color:#dc2626;margin-right:8px;"></i>متوسط المجالات — 6 كفايات</span><span style="font-size:0.65rem;color:var(--text-muted);background:rgba(15,23,42,0.04);padding:3px 8px;border-radius:20px;">% &nbsp;/5</span></div>
+      <div class="card-body" style="padding:16px;"><canvas id="da-chart-domains" height="260"></canvas></div>
+      <div id="da-domain-legend" style="padding:0 16px 16px;display:flex;flex-wrap:wrap;gap:6px;"></div>
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="card-title"><i class="fas fa-chart-pie" style="color:#dc2626;margin-right:8px;"></i>توزيع مستويات الأداء</span></div>
+      <div class="card-body" style="padding:16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+        <div style="flex:1;min-width:180px;"><canvas id="da-chart-dist" height="240"></canvas></div>
+        <div id="da-dist-legend" style="flex:1;min-width:140px;display:flex;flex-direction:column;gap:8px;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Charts Row 2 -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+    <div class="card">
+      <div class="card-header"><span class="card-title"><i class="fas fa-building" style="color:#dc2626;margin-right:8px;"></i>ترتيب الأقسام (حسب المتوسط)</span></div>
+      <div class="card-body" style="padding:12px;"><canvas id="da-chart-dept" height="340"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="card-title"><i class="fas fa-school" style="color:#dc2626;margin-right:8px;"></i>ترتيب المدارس / الفروع</span></div>
+      <div class="card-body" style="padding:12px;"><canvas id="da-chart-school" height="340"></canvas></div>
+    </div>
+  </div>
+
+  <!-- Heatmap -->
+  <div class="card">
+    <div class="card-header"><span class="card-title"><i class="fas fa-th" style="color:#dc2626;margin-right:8px;"></i>مصفوفة الأقسام × المجالات</span><span style="font-size:0.68rem;color:var(--text-muted);">خريطة حرارية — كلما زاد غمقان اللون ارتفع الأداء</span></div>
+    <div class="card-body" style="padding:0;overflow:auto;">
+      <table class="data-table" id="da-matrix-table" style="font-size:0.75rem;min-width:720px;">
+        <thead><tr><th style="text-align:right;">القسم (العدد)</th><th>CA</th><th>TP</th><th>AE</th><th>PS</th><th>ET</th><th>LR</th><th>المتوسط</th></tr></thead>
+        <tbody id="da-matrix-body"><tr><td colspan="8" style="text-align:center;padding:20px;color:var(--text-muted);">جاري التحميل…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Top / Bottom -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+    <div class="card">
+      <div class="card-header"><span class="card-title"><i class="fas fa-trophy" style="color:#f59e0b;margin-right:8px;"></i>أفضل 10 معلمين أداءً</span></div>
+      <div class="card-body" style="padding:0;overflow:auto;max-height:380px;">
+        <table class="data-table" style="font-size:0.78rem;"><thead><tr><th>#</th><th>الاسم</th><th>القسم</th><th>المدرسة</th><th>المجموع</th></tr></thead><tbody id="da-top-body"></tbody></table>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="card-title"><i class="fas fa-exclamation-triangle" style="color:#dc2626;margin-right:8px;"></i>آخر 10 — بحاجة إلى دعم</span></div>
+      <div class="card-body" style="padding:0;overflow:auto;max-height:380px;">
+        <table class="data-table" style="font-size:0.78rem;"><thead><tr><th>#</th><th>الاسم</th><th>القسم</th><th>المدرسة</th><th>المجموع</th></tr></thead><tbody id="da-bottom-body"></tbody></table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Full Table -->
+  <div class="card">
+    <div class="card-header" style="flex-wrap:wrap;gap:10px;">
+      <span class="card-title"><i class="fas fa-table" style="color:#dc2626;margin-right:8px;"></i>البيانات الكاملة — 88 معلم</span>
+      <div style="display:flex;gap:8px;align-items:center;margin-right:auto;">
+        <span id="da-table-count" style="font-size:0.7rem;color:var(--text-muted);background:rgba(15,23,42,0.04);padding:4px 10px;border-radius:20px;">88 صف</span>
+        <button onclick="da.exportCSV()" style="padding:6px 12px;border-radius:8px;border:1px solid var(--glass-border);background:#fff;font-size:0.72rem;font-weight:600;cursor:pointer;"><i class="fas fa-file-csv" style="margin-right:6px;color:#16a34a;"></i>CSV</button>
+      </div>
+    </div>
+    <div class="card-body" style="padding:0;overflow:auto;max-height:520px;">
+      <table class="data-table" id="da-table" style="font-size:0.75rem;min-width:900px;">
+        <thead style="position:sticky;top:0;background:#fff;z-index:1;">
+          <tr><th>رقم وظيفي</th><th>الاسم</th><th>القسم</th><th>المدرسة</th><th>CA</th><th>TP</th><th>AE</th><th>PS</th><th>ET</th><th>LR</th><th>المجموع</th><th>/5</th></tr>
+        </thead>
+        <tbody id="da-table-body"><tr><td colspan="12" style="text-align:center;padding:20px;"><i class="fas fa-spinner fa-spin" style="color:var(--sta-red);"></i> جاري التحميل…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Methodology -->
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+var da = (function(){
+  var raw = null;
+  var filteredRows = null;
+  var charts = {};
+
+  function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+  function init(){
+    if(typeof Chart==='undefined'){
+      setTimeout(init, 300);
+      return;
+    }
+    google.script.run.withSuccessHandler(function(opts){
+      var deptSel=document.getElementById('da-filter-dept');
+      var schoolSel=document.getElementById('da-filter-school');
+      if(opts && opts.departments){
+        opts.departments.forEach(function(d){ deptSel.innerHTML+='<option value="'+esc(d)+'">'+esc(d)+'</option>';});
+      }
+      if(opts && opts.schools){
+        opts.schools.forEach(function(s){ schoolSel.innerHTML+='<option value="'+esc(s)+'">'+esc(s)+'</option>';});
+      }
+    }).getHistoricalFilterOptions();
+
+    google.script.run.withSuccessHandler(render).withFailureHandler(function(e){
+      document.getElementById('da-kpis').innerHTML='<div class="card" style="padding:20px;color:#dc2626;">فشل تحميل البيانات التاريخية: '+esc(e.message||e)+'<br><small>تأكد من مشاركة ملف Google Sheets مع حساب التطبيق.</small></div>';
+    }).getHistoricalAnalytics();
+  }
+
+  function render(payload){
+    if(payload.error){ document.getElementById('da-kpis').innerHTML='<div class="card" style="padding:20px;color:#dc2626;">'+esc(payload.error)+'</div>'; return; }
+    raw = payload;
+    filteredRows = payload.rows.slice();
+    renderKPIs(payload);
+    renderInsights(payload.insights);
+    renderCharts(payload);
+    renderMatrix(payload.deptDomainMatrix);
+    renderTopBottom(payload.topPerformers, payload.bottomPerformers);
+    renderTable(payload.rows);
+    document.getElementById('da-filter-count').textContent = payload.rows.length + ' سجل';
+  }
+
+  function renderKPIs(p){
+    var k=p.kpis;
+    var html='';
+    html+=kpiCard('إجمالي المعلمين',''+k.totalTeachers,'users','linear-gradient(135deg,#0ea5e9,#0284c7)','بيانات تاريخية كاملة');
+    html+=kpiCard('المتوسط العام',''+k.overallAvgPct+'% <span style="font-size:0.85rem;color:var(--text-muted);font-weight:600;">('+k.overallAvg5+'/5)</span>','bullseye','linear-gradient(135deg,#dc2626,#b91c1c)','متوسط الدرجة الكلية');
+    var bestDom = p.domainAvgs[0], worstDom = p.domainAvgs[p.domainAvgs.length-1];
+    html+=kpiCard('أقوى مجال', esc(bestDom.label)+' <span style="font-size:0.7rem;background:rgba(34,197,94,0.12);color:#16a34a;padding:2px 6px;border-radius:20px;margin-right:4px;">'+bestDom.code+'</span>','star','linear-gradient(135deg,#16a34a,#15803d)', bestDom.pct+'%');
+    html+=kpiCard('أضعف مجال', esc(worstDom.label)+' <span style="font-size:0.7rem;background:rgba(239,68,68,0.12);color:#dc2626;padding:2px 6px;border-radius:20px;margin-right:4px;">'+worstDom.code+'</span>','exclamation-triangle','linear-gradient(135deg,#f59e0b,#d97706)', worstDom.pct+'% — يحتاج تطوير');
+    html+=kpiCard('ممتاز ≥85%',''+k.distributionCounts.excellent+' <span style="font-size:0.75rem;color:var(--text-muted);">من '+k.totalTeachers+'</span>','trophy','linear-gradient(135deg,#8b5cf6,#7c3aed)', ((k.distributionCounts.excellent/k.totalTeachers)*100).toFixed(1)+'%');
+    document.getElementById('da-kpis').innerHTML=html;
+  }
+  function kpiCard(label, value, icon, bg, sub){
+    return '<div class="stat-card" style="flex-direction:column;align-items:flex-start;gap:10px;">'
+      +'<div style="display:flex;align-items:center;gap:12px;width:100%;">'
+        +'<div class="stat-icon" style="background:'+bg+';color:#fff;"><i class="fas fa-'+icon+'"></i></div>'
+        +'<div style="flex:1;"><div class="stat-label">'+label+'</div><div class="stat-value" style="font-size:1.15rem;">'+value+'</div></div>'
+      +'</div>'
+      +'<div style="font-size:0.68rem;color:var(--text-muted);">'+sub+'</div>'
+    +'</div>';
+  }
+
+  function renderInsights(insights){
+    var el=document.getElementById('da-insights');
+    if(!insights||!insights.length){ el.innerHTML=''; return; }
+    var colors={warning:'rgba(245,158,11,0.08)',info:'rgba(59,130,246,0.08)',success:'rgba(34,197,94,0.08)',danger:'rgba(239,68,68,0.08)'};
+    var borders={warning:'rgba(245,158,11,0.25)',info:'rgba(59,130,246,0.25)',success:'rgba(34,197,94,0.25)',danger:'rgba(239,68,68,0.25)'};
+    var icons={warning:'exclamation-triangle',info:'info-circle',success:'check-circle',danger:'times-circle'};
+    el.innerHTML=insights.map(function(ins){
+      return '<div style="display:flex;gap:12px;align-items:flex-start;padding:12px 16px;border-radius:12px;background:'+(colors[ins.type]||colors.info)+';border:1px solid '+(borders[ins.type]||borders.info)+';">'
+        +'<div style="width:32px;height:32px;border-radius:8px;background:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0;border:1px solid '+(borders[ins.type]||borders.info)+'"><i class="fas fa-'+icons[ins.type]+'" style="font-size:0.85rem;color:var(--text-secondary);"></i></div>'
+        +'<div style="flex:1;"><div style="font-size:0.82rem;font-weight:700;color:var(--text-primary);">'+esc(ins.title)+'</div><div style="font-size:0.75rem;color:var(--text-secondary);margin-top:3px;line-height:1.7;">'+esc(ins.text)+'</div></div>'
+      +'</div>';
+    }).join('');
+  }
+
+  function renderCharts(p){
+    // Domain bar
+    var ctxD=document.getElementById('da-chart-domains').getContext('2d');
+    if(charts.domains) charts.domains.destroy();
+    var domLabels=p.domainAvgs.map(function(d){return d.code;});
+    var domVals=p.domainAvgs.map(function(d){return d.pct;});
+    var domColors=p.domainAvgs.map(function(d){
+      var pct=d.pct;
+      if(pct>=82) return 'rgba(34,197,94,0.85)';
+      if(pct>=78) return 'rgba(59,130,246,0.85)';
+      return 'rgba(245,158,11,0.85)';
+    });
+    charts.domains=new Chart(ctxD,{ type:'bar', data:{ labels:domLabels, datasets:[{ label:'المتوسط %', data:domVals, backgroundColor:domColors, borderRadius:8, borderSkipped:false }] }, options:{ responsive:true, plugins:{ legend:{display:false}, tooltip:{ callbacks:{ label:function(c){ return c.raw+'% ('+(c.raw/20).toFixed(2)+'/5)'; } } } }, scales:{ y:{ beginAtZero:true, max:100, ticks:{ callback:function(v){return v+'%';} }, grid:{color:'rgba(15,23,42,0.06)'} }, x:{ grid:{display:false} } } } });
+    document.getElementById('da-domain-legend').innerHTML=p.domainAvgs.map(function(d){
+      return '<span style="font-size:0.68rem;background:rgba(15,23,42,0.04);padding:4px 8px;border-radius:20px;border:1px solid var(--glass-border);"><strong>'+d.code+'</strong> '+esc(d.label)+' — <span style="color:#dc2626;font-weight:700;">'+d.pct+'%</span></span>';
+    }).join('');
+
+    // Distribution pie
+    var ctxP=document.getElementById('da-chart-dist').getContext('2d');
+    if(charts.dist) charts.dist.destroy();
+    var dist=p.kpis.distributionCounts;
+    charts.dist=new Chart(ctxP,{ type:'doughnut', data:{ labels:['ممتاز ≥85%','جيد 70-85%','مقبول 50-70%','ضعيف <50%'], datasets:[{ data:[dist.excellent, dist.good, dist.average, dist.poor], backgroundColor:['#16a34a','#2563eb','#f59e0b','#dc2626'], borderWidth:0 }] }, options:{ responsive:true, cutout:'58%', plugins:{ legend:{position:'bottom', labels:{boxWidth:12,font:{size:11}} } } } });
+    document.getElementById('da-dist-legend').innerHTML=[
+      '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-radius:8px;background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.2);"><span style="font-size:0.75rem;font-weight:600;"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#16a34a;margin-left:6px;"></span>ممتاز</span><span style="font-weight:800;color:#16a34a;">'+dist.excellent+'</span></div>',
+      '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-radius:8px;background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.2);"><span style="font-size:0.75rem;font-weight:600;"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#2563eb;margin-left:6px;"></span>جيد</span><span style="font-weight:800;color:#2563eb;">'+dist.good+'</span></div>',
+      '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-radius:8px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.2);"><span style="font-size:0.75rem;font-weight:600;"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#f59e0b;margin-left:6px;"></span>مقبول</span><span style="font-weight:800;color:#d97706;">'+dist.average+'</span></div>',
+      '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-radius:8px;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);"><span style="font-size:0.75rem;font-weight:600;"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#dc2626;margin-left:6px;"></span>ضعيف</span><span style="font-weight:800;color:#dc2626;">'+dist.poor+'</span></div>'
+    ].join('');
+
+    // Dept chart
+    var ctxDept=document.getElementById('da-chart-dept').getContext('2d');
+    if(charts.dept) charts.dept.destroy();
+    var deptLabels=p.deptAvgs.map(function(d){return d.department;});
+    var deptVals=p.deptAvgs.map(function(d){return d.pct;});
+    charts.dept=new Chart(ctxDept,{ type:'bar', data:{ labels:deptLabels, datasets:[{ label:'المتوسط %', data:deptVals, backgroundColor:'rgba(220,38,38,0.85)', borderRadius:6 }] }, options:{ indexAxis:'y', responsive:true, plugins:{ legend:{display:false} }, scales:{ x:{ beginAtZero:true,max:100,ticks:{callback:function(v){return v+'%';}},grid:{color:'rgba(15,23,42,0.06)'} }, y:{ grid:{display:false}, ticks:{font:{size:10}} } } } });
+
+    // School chart
+    var ctxSch=document.getElementById('da-chart-school').getContext('2d');
+    if(charts.school) charts.school.destroy();
+    var schLabels=p.schoolAvgs.map(function(s){return s.school;});
+    var schVals=p.schoolAvgs.map(function(s){return s.pct;});
+    var schCounts=p.schoolAvgs.map(function(s){return s.count;});
+    charts.school=new Chart(ctxSch,{ type:'bar', data:{ labels:schLabels, datasets:[{ label:'المتوسط %', data:schVals, backgroundColor:'rgba(14,165,233,0.85)', borderRadius:6 }] }, options:{ indexAxis:'y', responsive:true, plugins:{ legend:{display:false}, tooltip:{ callbacks:{ afterLabel:function(c){ return 'العدد: '+schCounts[c.dataIndex]; } } } }, scales:{ x:{ beginAtZero:true,max:100,ticks:{callback:function(v){return v+'%';}},grid:{color:'rgba(15,23,42,0.06)'} }, y:{ grid:{display:false}, ticks:{font:{size:11}} } } } });
+  }
+
+  function renderMatrix(matrix){
+    var tbody=document.getElementById('da-matrix-body');
+    tbody.innerHTML=matrix.map(function(row){
+      function cell(v){
+        var pct=(v*100).toFixed(1);
+        var alpha=Math.min(0.85, Math.max(0.08, (v-0.4)/0.6));
+        var bg=v>=0.85?'rgba(34,197,94,'+alpha+')': v>=0.70?'rgba(59,130,246,'+alpha+')': v>=0.50?'rgba(245,158,11,'+alpha+')':'rgba(239,68,68,'+alpha+')';
+        var color=(v>=0.70)?'#fff':'#1e293b';
+        return '<td style="text-align:center;background:'+bg+';color:'+color+';font-weight:700;">'+pct+'%</td>';
+      }
+      return '<tr><td style="font-weight:700;white-space:nowrap;">'+esc(row.department)+' <span style="font-size:0.65rem;color:var(--text-muted);background:rgba(15,23,42,0.04);padding:2px 6px;border-radius:10px;margin-right:6px;">n='+row.count+'</span></td>'
+        +cell(row.domains.CA)+cell(row.domains.TP)+cell(row.domains.AE)+cell(row.domains.PS)+cell(row.domains.ET)+cell(row.domains.LR)
+        +'<td style="text-align:center;font-weight:800;background:rgba(15,23,42,0.06);">'+(row.avg*100).toFixed(1)+'%</td></tr>';
+    }).join('');
+  }
+
+  function renderTopBottom(top,bottom){
+    function rowsHtml(arr){
+      return arr.map(function(r){
+        var badge = r.pct>=85?'badge-excellent': r.pct>=70?'badge-good': r.pct>=50?'badge-average':'badge-poor';
+        return '<tr><td style="font-weight:700;color:var(--text-muted);">'+r.rank+'</td><td style="font-weight:600;">'+esc(r.Name)+'<div style="font-size:0.65rem;color:var(--text-muted);">'+esc(r.TID)+'</div></td><td>'+esc(r.Department)+'</td><td>'+esc(r.School)+'</td><td><span class="badge '+badge+'">'+r.pct+'% ('+r.Total5+'/5)</span></td></tr>';
+      }).join('');
+    }
+    document.getElementById('da-top-body').innerHTML=rowsHtml(top);
+    document.getElementById('da-bottom-body').innerHTML=rowsHtml(bottom);
+  }
+
+  function renderTable(rows){
+    filteredRows = rows.slice();
+    paintTable(filteredRows);
+  }
+  function paintTable(rows){
+    var tbody=document.getElementById('da-table-body');
+    document.getElementById('da-table-count').textContent=rows.length+' صف';
+    if(!rows.length){ tbody.innerHTML='<tr><td colspan="12" style="text-align:center;padding:20px;color:var(--text-muted);">لا توجد سجلات مطابقة</td></tr>'; return; }
+    tbody.innerHTML=rows.map(function(r){
+      function pctCell(v){
+        var pct=(v*100).toFixed(1);
+        var cls=v>=0.85?'color:#16a34a;font-weight:700;': v>=0.70?'color:#2563eb;font-weight:600;': v>=0.50?'color:#d97706;':'color:#dc2626;font-weight:700;';
+        return '<td style="text-align:center;'+cls+'">'+pct+'%</td>';
+      }
+      var totalCls=r.Total>=0.85?'badge-excellent': r.Total>=0.70?'badge-good': r.Total>=0.50?'badge-average':'badge-poor';
+      return '<tr><td style="font-family:monospace;font-size:0.7rem;">'+esc(r.TID)+'</td><td style="font-weight:600;white-space:nowrap;">'+esc(r.Name)+'</td><td>'+esc(r.Department)+'</td><td>'+esc(r.School)+'</td>'
+        +pctCell(r.CA)+pctCell(r.TP)+pctCell(r.AE)+pctCell(r.PS)+pctCell(r.ET)+pctCell(r.LR)
+        +'<td style="text-align:center;"><span class="badge '+totalCls+'">'+(r.Total*100).toFixed(1)+'%</span></td><td style="text-align:center;font-weight:700;">'+(r.Total*5).toFixed(2)+'</td></tr>';
+    }).join('');
+  }
+
+  function applyFilters(){
+    if(!raw) return;
+    var dept=document.getElementById('da-filter-dept').value;
+    var school=document.getElementById('da-filter-school').value;
+    var search=document.getElementById('da-search').value.trim().toLowerCase();
+    var filtered=raw.rows.filter(function(r){
+      if(dept && r.Department!==dept) return false;
+      if(school && r.School!==school) return false;
+      if(search && r.Name.toLowerCase().indexOf(search)===-1 && String(r.TID).toLowerCase().indexOf(search)===-1) return false;
+      return true;
+    });
+    filteredRows=filtered;
+    document.getElementById('da-filter-count').textContent=filtered.length+' / '+raw.rows.length+' سجل';
+    paintTable(filtered);
+  }
+  function clearFilters(){
+    document.getElementById('da-filter-dept').value='';
+    document.getElementById('da-filter-school').value='';
+    document.getElementById('da-search').value='';
+    applyFilters();
+  }
+  function exportCSV(){
+    if(!filteredRows || !filteredRows.length){ alert('لا توجد بيانات للتصدير'); return; }
+    var headers=['TID','Name','Department','School','CA','TP','AE','PS','ET','LR','Total','Total_5','Pct'];
+    var csv=[headers.join(',')];
+    filteredRows.forEach(function(r){
+      csv.push([r.TID,'"'+(r.Name||'').replace(/"/g,'""')+'"', r.Department, r.School, r.CA.toFixed(4), r.TP.toFixed(4), r.AE.toFixed(4), r.PS.toFixed(4), r.ET.toFixed(4), r.LR.toFixed(4), r.Total.toFixed(4), (r.Total*5).toFixed(2), (r.Total*100).toFixed(1)+'%'].join(','));
+    });
+    var blob=new Blob(['\ufeff'+csv.join('\n')],{type:'text/csv;charset=utf-8;'});
+    var url=URL.createObjectURL(blob);
+    var a=document.createElement('a'); a.href=url; a.download='التحليلات_التاريخية_'+new Date().toISOString().slice(0,10)+'.csv'; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+  }
+  function refresh(){ init(); }
+
+  return { init:init, applyFilters:applyFilters, clearFilters:clearFilters, exportCSV:exportCSV, refresh:refresh };
+})();
+if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', function(){ da.init(); }); else da.init();
+</script>

@@ -1,0 +1,138 @@
+<div class="max-w-4xl mx-auto bg-white border border-gray-200 shadow-lg rounded-xl overflow-hidden">
+  <div class="p-6 border-b border-gray-100 bg-slate-50">
+    <h3 class="text-base font-semibold text-gray-800">سجل تقييم أداء جديد</h3>
+    <p class="text-xs text-gray-500">اختر عضو نشط لإنشاء نموذج التقييم.</p>
+  </div>
+
+  <div class="p-6 space-y-6">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-50 p-4 rounded-lg border border-gray-200/60">
+      <div>
+        <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider">اختر الموظف</label>
+        <select id="emp-selector" onchange="evaluationForm.loadEmployeeMeta()" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:ring-cyan-500 focus:border-cyan-500 sm:text-sm p-2.5 bg-white border">
+          <option value="">جاري الاتصال بقاعدة البيانات...</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider">بيانات الملف الشخصي</label>
+        <div id="meta-card" class="mt-2 text-sm text-gray-400 italic bg-gray-100 p-2 rounded-md border border-dashed border-gray-200">
+          بانتظار تحديد الموظف...
+        </div>
+      </div>
+    </div>
+
+    <form id="evaluation-submission-form" onsubmit="evaluationForm.handleSave(event)" class="space-y-6 hidden">
+      <div class="border-t border-gray-100 pt-4">
+        <h4 class="text-sm font-semibold text-gray-800 mb-4 tracking-wide uppercase text-cyan-600">أسئلة التقييم</h4>
+        <div id="dynamic-questions-wrapper" class="space-y-4 divide-y divide-gray-100"></div>
+      </div>
+
+      <div class="border-t border-gray-100 pt-4">
+        <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">ملاحظات المقيِّم</label>
+        <textarea id="eval-notes" rows="3" required class="w-full p-3 border rounded-lg text-sm shadow-sm focus:ring-cyan-500 focus:border-cyan-500" placeholder="أدخل ملاحظاتك هنا..."></textarea>
+      </div>
+
+      <button type="submit" class="w-full bg-cyan-600 text-white font-medium py-3 px-4 rounded-lg shadow-md hover:bg-cyan-700 transition focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2">
+         حفظ التقييم
+      </button>
+    </form>
+  </div>
+</div>
+
+<script>
+var evaluationForm = {
+  loadEmployeeMeta: function() {
+    const id = document.getElementById('emp-selector').value;
+    if(!id) {
+      document.getElementById('evaluation-submission-form').classList.add('hidden');
+      return;
+    }
+
+    router.showLoader(true);
+    google.script.run.withSuccessHandler((emp) => {
+       document.getElementById('meta-card').innerHTML = `
+         <div class="text-slate-700 font-sans not-italic space-y-1 text-xs">
+           <p><strong>الاسم:</strong> ${emp.name} (${emp.id})</p>
+           <p><strong>المسمى:</strong> ${emp.position}</p>
+           <p><strong>القسم:</strong> ${emp.department} | <strong>الفرع:</strong> ${emp.branch}</p>
+         </div>`;
+       this.renderTemplateQuestions();
+    }).getEmployeeProfile(id);
+  },
+
+  renderTemplateQuestions: function() {
+     google.script.run.withSuccessHandler((questions) => {
+       let html = '';
+       if(questions.length === 0) {
+         html = '<p class="text-sm text-amber-600 italic">لا توجد أسئلة نشطة.</p>';
+       }
+
+       questions.forEach(q => {
+         html += `
+           <div class="pt-4 question-block" data-qid="${q.id}" data-weight="${q.weight}">
+             <div class="flex items-center justify-between mb-1">
+               <span class="inline-block bg-slate-100 text-slate-700 text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded">${q.category}</span>
+               <span class="text-[10px] text-slate-400 font-mono">معامل الوزن: ${parseFloat(q.weight).toFixed(2)}</span>
+             </div>
+             <p class="text-sm text-gray-800 font-medium mb-3">${q.text}</p>
+             <div class="flex items-center space-x-6 bg-slate-50/50 p-2 rounded-lg border border-gray-100">
+               ${[1,2,3,4,5].map(v => `
+                 <label class="flex items-center space-x-1.5 cursor-pointer group">
+                   <input type="radio" name="rad_${q.id}" value="${v}" required class="h-4 w-4 text-cyan-600 border-gray-300 focus:ring-cyan-500">
+                   <span class="text-xs font-medium text-gray-600 group-hover:text-cyan-600 transition">${v}</span>
+                 </label>
+               `).join('')}
+               <div class="mr-auto text-[10px] text-gray-400 flex justify-between w-32 font-medium">
+                 <span>ضعيف</span><span>ممتاز</span>
+               </div>
+             </div>
+           </div>`;
+       });
+       document.getElementById('dynamic-questions-wrapper').innerHTML = html;
+       document.getElementById('evaluation-submission-form').classList.remove('hidden');
+       router.showLoader(false);
+     }).getActiveQuestions();
+  },
+
+  handleSave: function(e) {
+     e.preventDefault();
+     router.showLoader(true);
+
+     const payload = {
+        templateId: "tpl-default-2026",
+        employeeId: document.getElementById('emp-selector').value,
+        subjectId: "sub-general",
+        classId: "cls-general",
+        semester: "الفصل الدراسي الأول",
+        evaluationPeriod: "منتصف العام 2026",
+        notes: document.getElementById('eval-notes').value,
+        responses: []
+     };
+
+     document.querySelectorAll('.question-block').forEach(el => {
+        const qId = el.getAttribute('data-qid');
+        const weight = el.getAttribute('data-weight');
+        const checkedVal = el.querySelector(`input[name="rad_${qId}"]:checked`).value;
+        payload.responses.push({ questionId: qId, rating: checkedVal, weight: weight });
+     });
+
+     google.script.run
+       .withSuccessHandler((res) => {
+          router.showLoader(false);
+          alert("تم حفظ التقييم بنجاح! رقم السجل: " + res.evaluationId);
+          router.navigate('dashboard', 'لوحة التحكم');
+       })
+       .withFailureHandler((err) => {
+          router.showLoader(false);
+          alert("خطأ في حفظ التقييم: " + err.message);
+       })
+       .submitEvaluationTransaction(payload);
+  }
+};
+
+google.script.run.withSuccessHandler((list) => {
+  let options = '<option value="">-- اختر الموظف --</option>';
+  list.forEach(item => options += `<option value="${item.id}">${item.name}</option>`);
+  document.getElementById('emp-selector').innerHTML = options;
+  router.showLoader(false);
+}).getActiveEmployeesList();
+</script>
