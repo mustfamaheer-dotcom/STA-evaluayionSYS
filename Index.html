@@ -1320,7 +1320,17 @@ function filterManagerCards(){
               +bg.items.map(function(item){
                 return '<span style="display:inline-flex;align-items:center;gap:6px;padding:5px 12px;background:linear-gradient(135deg,rgba(211,47,47,0.08),rgba(211,47,47,0.03));border:1px solid rgba(211,47,47,0.2);border-radius:8px;font-size:0.78rem;font-weight:600;color:var(--text-primary);">'
                   +'<span>'+esc(item.departmentName)+'</span>'
-                  +'<i class="fas fa-times" style="color:#dc2626;cursor:pointer;font-size:0.7rem;padding:2px;border-radius:3px;transition:background 0.15s;" onmouseover="this.style.background=\'rgba(239,68,68,0.15)\'" onmouseout="this.style.background=\'transparent\'" title="حذف هذا الربط" onclick="removeManagerDeptAssign(\''+esc(item.mgrDeptId)+'\',\''+esc(mgr.name)+'\',\''+esc(item.departmentName)+'\',\''+esc(item.branchName)+'\')"></i>'
+                  +'<i class="fas fa-times" style="color:#dc2626;cursor:pointer;font-size:0.7rem;padding:2px;border-radius:3px;transition:background 0.15s;" '
+                  +'onmouseover="this.style.background=\'rgba(239,68,68,0.15)\'" onmouseout="this.style.background=\'transparent\'" '
+                  +'title="حذف هذا الربط" '
+                  +'data-mgr-dept-id="'+esc(item.mgrDeptId)+'" '
+                  +'data-mgr-id="'+esc(mgr.managerId)+'" '
+                  +'data-dept-id="'+esc(item.departmentId)+'" '
+                  +'data-branch-id="'+esc(item.branchId)+'" '
+                  +'data-mgr-name="'+esc(mgr.name)+'" '
+                  +'data-dept-name="'+esc(item.departmentName)+'" '
+                  +'data-branch-name="'+esc(item.branchName)+'" '
+                  +'onclick="onRemoveManagerDeptClick(this)"></i>'
                 +'</span>';
               }).join('')
             +'</div>'
@@ -1419,7 +1429,16 @@ function submitManagerDeptAssign(mgrId){
     .addManagerDepartment(mgrId, deptId, branchId);
 }
 
-function removeManagerDeptAssign(mgrDeptId, mgrName, deptName, branchName){
+function onRemoveManagerDeptClick(el){
+  if(!el) return;
+  var mgrDeptId = el.getAttribute('data-mgr-dept-id') || '';
+  var mgrId = el.getAttribute('data-mgr-id') || '';
+  var deptId = el.getAttribute('data-dept-id') || '';
+  var branchId = el.getAttribute('data-branch-id') || '';
+  var mgrName = el.getAttribute('data-mgr-name') || '';
+  var deptName = el.getAttribute('data-dept-name') || '';
+  var branchName = el.getAttribute('data-branch-name') || '';
+
   var msg = 'هل أنت متأكد من إزالة قسم "' + deptName + '" في فرع "' + branchName + '" من المدير "' + mgrName + '"؟\n\nلن يتمكن هذا المدير من تقييم معلمي هذا القسم في هذا الفرع بعد الحذف.';
   showConfirm('تأكيد إزالة التعيين', msg, function(){
     showModal('جاري الحذف', 'جاري إزالة التعيين...');
@@ -1435,7 +1454,27 @@ function removeManagerDeptAssign(mgrDeptId, mgrName, deptName, branchName){
       .withFailureHandler(function(e){
         showModal('خطأ في الخادم', 'خطأ: ' + esc(e.message || e), true);
       })
-      .removeManagerDepartment(mgrDeptId);
+      .removeManagerDepartment(mgrDeptId, mgrId, deptId, branchId);
+  });
+}
+
+function removeManagerDeptAssign(mgrDeptId, mgrName, deptName, branchName, mgrId, deptId, branchId){
+  var msg = 'هل أنت متأكد من إزالة قسم "' + (deptName || '') + '" في فرع "' + (branchName || '') + '" من المدير "' + (mgrName || '') + '"؟\n\nلن يتمكن هذا المدير من تقييم معلمي هذا القسم في هذا الفرع بعد الحذف.';
+  showConfirm('تأكيد إزالة التعيين', msg, function(){
+    showModal('جاري الحذف', 'جاري إزالة التعيين...');
+    google.script.run
+      .withSuccessHandler(function(r){
+        if(r && r.success){
+          showModal('تم الحذف', 'تم إزالة التعيين بنجاح.');
+          loadManagerDeptAssignPage();
+        } else {
+          showModal('خطأ', (r && r.error) || 'تعذر حذف التعيين', true);
+        }
+      })
+      .withFailureHandler(function(e){
+        showModal('خطأ في الخادم', 'خطأ: ' + esc(e.message || e), true);
+      })
+      .removeManagerDepartment(mgrDeptId, mgrId || '', deptId || '', branchId || '');
   });
 }
 

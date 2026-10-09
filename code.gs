@@ -669,27 +669,67 @@ function addManagerDepartment(managerId, departmentId, branchId) {
 
 /**
  * Remove a department assignment from a manager
+ * Supports deletion by mgrDeptId or by triple combination (managerId, departmentId, branchId)
  */
-function removeManagerDepartment(mgrDeptId) {
+function removeManagerDepartment(mgrDeptId, managerId, departmentId, branchId) {
   var callerEmail = '';
   try { callerEmail = Session.getActiveUser().getEmail(); } catch (e) {}
   PermissionGuard.require(callerEmail, 'canManageSystem');
 
   var targetId = (mgrDeptId || '').toString().trim();
-  if (!targetId) return { success: false, error: 'معرف الربط غير محدد' };
+  var mId = (managerId || '').toString().trim();
+  var dId = (departmentId || '').toString().trim();
+  var bId = (branchId || '').toString().trim();
+
+  if (!targetId && (!mId || !dId)) {
+    return { success: false, error: 'معرف الربط غير محدد' };
+  }
 
   try {
     var sheet = AppUtils.getDB().getSheetByName('ManagerDepartments');
     if (!sheet) return { success: false, error: 'Sheet ManagerDepartments not found' };
+
     var data = sheet.getDataRange().getValues();
-    for (var i = 1; i < data.length; i++) {
-      if ((data[i][0] || '').toString().trim() === targetId) {
+    if (data.length <= 1) {
+      return { success: false, error: 'لا توجد بيانات مسجلة في جدول التعيينات' };
+    }
+
+    var headers = data[0].map(function (h) { return h.toString().trim(); });
+    var idIdx = headers.indexOf('mgr_dept_id');
+    var mgrIdx = headers.indexOf('manager_id');
+    var deptIdx = headers.indexOf('department_id');
+    var branchIdx = headers.indexOf('branch_id');
+
+    var deletedCount = 0;
+    // Iterate backwards so deleting rows does not shift row indices of unprocessed rows
+    for (var i = data.length - 1; i >= 1; i--) {
+      var row = data[i];
+      var rowId = idIdx !== -1 ? (row[idIdx] || '').toString().trim() : (row[0] || '').toString().trim();
+      var rowMgr = mgrIdx !== -1 ? (row[mgrIdx] || '').toString().trim() : '';
+      var rowDept = deptIdx !== -1 ? (row[deptIdx] || '').toString().trim() : '';
+      var rowBranch = branchIdx !== -1 ? (row[branchIdx] || '').toString().trim() : '';
+
+      var matched = false;
+      if (targetId && rowId && rowId === targetId) {
+        matched = true;
+      } else if (mId && dId && rowMgr === mId && rowDept === dId) {
+        if (!bId || branchIdx === -1 || !rowBranch || rowBranch === bId) {
+          matched = true;
+        }
+      }
+
+      if (matched) {
         sheet.deleteRow(i + 1);
-        AppUtils.invalidate('ManagerDepartments');
-        AppUtils.writeLog(callerEmail, 'REMOVE_MGR_DEPT', 'ManagerDepartments', 'Removed: ' + targetId, 'SUCCESS');
-        return { success: true };
+        deletedCount++;
       }
     }
+
+    if (deletedCount > 0) {
+      AppUtils.invalidate('ManagerDepartments');
+      AppUtils.writeLog(callerEmail, 'REMOVE_MGR_DEPT', 'ManagerDepartments', 'Removed: ' + (targetId || (mId + '-' + dId)), 'SUCCESS');
+      return { success: true };
+    }
+
     return { success: false, error: 'الربط غير موجود' };
   } catch (e) {
     return { success: false, error: e.message };
