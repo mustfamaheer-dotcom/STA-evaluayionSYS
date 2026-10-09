@@ -1,0 +1,10 @@
+# Clasp auth credentials (CRITICAL: NEVER COMMIT THIS)
+.clasprc.json
+
+# Node modules & logs
+node_modules/
+npm-debug.log*
+
+# OS files
+Thumbs.db
+.DS_Store

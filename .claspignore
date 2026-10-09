@@ -1,0 +1,8 @@
+# Clasp ignore file - only push code and html to Apps Script
+**/**
+
+# Allow Apps Script code and html
+!*.gs
+!*.js
+!*.html
+!appsscript.json
