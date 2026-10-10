@@ -92,7 +92,7 @@ function submitEvaluation(payload) {
 
     // Verify Manager-Department-Branch assignment scoping (Super Admin bypasses)
     var userRole = (_resolveRole(callerEmail.toLowerCase().trim()) || '').toUpperCase();
-    var isSuperAdmin = (userRole === 'ADMIN' || userRole === 'ROLE_SUPER_ADMIN' || userRole === 'SUPER_ADMIN');
+    var isSuperAdmin = (userRole === 'ADMIN' || userRole === 'ROLE_SUPER_ADMIN' || userRole === 'SUPER_ADMIN' || userRole === 'مدير النظام');
 
     if (!isSuperAdmin) {
       var teacherId = (payload.teacherId || '').toString().trim();
@@ -122,7 +122,8 @@ function submitEvaluation(payload) {
       var currentMgrId = '';
       for (var mi = 0; mi < mgrRows.length; mi++) {
         var mEmail = (mgrRows[mi]['email'] || '').toString().toLowerCase().trim();
-        if (mEmail === callerEmail.toLowerCase().trim()) {
+        var mst = (mgrRows[mi]['status'] || 'Active').toString().trim().toLowerCase();
+        if (mEmail === callerEmail.toLowerCase().trim() && (mst === 'active' || mst === '')) {
           currentMgrId = (mgrRows[mi]['manager_id'] || '').toString().trim();
           break;
         }

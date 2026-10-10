@@ -746,7 +746,7 @@ function getTeachersForCurrentManager() {
   PermissionGuard.require(callerEmail, 'canEvaluate');
 
   var userRole = (_resolveRole(callerEmail.toLowerCase().trim()) || '').toUpperCase();
-  var isSuperAdmin = (userRole === 'ADMIN' || userRole === 'ROLE_SUPER_ADMIN' || userRole === 'SUPER_ADMIN');
+  var isSuperAdmin = (userRole === 'ADMIN' || userRole === 'ROLE_SUPER_ADMIN' || userRole === 'SUPER_ADMIN' || userRole === 'مدير النظام');
 
   var allTeachers = getTeachers();
   if (isSuperAdmin) {
@@ -758,7 +758,8 @@ function getTeachersForCurrentManager() {
   var currentMgrId = '';
   for (var mi = 0; mi < mgrRows.length; mi++) {
     var mEmail = (mgrRows[mi]['email'] || '').toString().toLowerCase().trim();
-    if (mEmail === callerEmail.toLowerCase().trim()) {
+    var mst = (mgrRows[mi]['status'] || 'Active').toString().trim().toLowerCase();
+    if (mEmail === callerEmail.toLowerCase().trim() && (mst === 'active' || mst === '')) {
       currentMgrId = (mgrRows[mi]['manager_id'] || '').toString().trim();
       break;
     }
@@ -1149,11 +1150,73 @@ function deleteQuestion(questionId) {
 }
 
 function addManager(p) {
-  return addRow('Managers', {
-    name:  p.name,
-    email: p.email,
-    role:  p.role
-  });
+  try {
+    var callerEmail = '';
+    try { callerEmail = Session.getActiveUser().getEmail(); } catch (e) {}
+    PermissionGuard.require(callerEmail, 'canManageSystem');
+
+    var name = (p.name || '').toString().trim();
+    var email = (p.email || '').toString().toLowerCase().trim();
+    var roleInput = (p.role || 'مدير').toString().trim();
+
+    var norm = _normalizeRole(roleInput);
+    var role = norm === 'ADMIN' ? 'مدير النظام' : (norm === 'MANAGER' ? 'مدير' : 'معلم');
+
+    var ss = AppUtils.getDB();
+    var sheet = ss.getSheetByName('Managers');
+    if (!sheet) return { success: false, error: 'الصفحة غير موجودة: Managers' };
+
+    var data = sheet.getDataRange().getValues();
+    if (data.length <= 1) {
+      var res = addRow('Managers', { name: name, email: email, role: role });
+      _profileCache = {};
+      return res;
+    }
+
+    var headers = data[0].map(function(h) { return h.toString().trim(); });
+    var idIdx = headers.indexOf('manager_id');
+    var emailIdx = headers.indexOf('email');
+    var nameIdx = headers.indexOf('name');
+    var roleIdx = headers.indexOf('role');
+    var statusIdx = headers.indexOf('status');
+
+    var foundRowIndex = -1;
+    for (var i = 1; i < data.length; i++) {
+      var rowEmail = (data[i][emailIdx] || '').toString().toLowerCase().trim();
+      if (rowEmail === email) {
+        foundRowIndex = i + 1; // 1-based row index in sheet
+        break;
+      }
+    }
+
+    if (foundRowIndex > 0) {
+      if (nameIdx !== -1 && name) sheet.getRange(foundRowIndex, nameIdx + 1).setValue(name);
+      if (roleIdx !== -1) sheet.getRange(foundRowIndex, roleIdx + 1).setValue(role);
+      if (statusIdx !== -1) sheet.getRange(foundRowIndex, statusIdx + 1).setValue('Active');
+
+      if (idIdx !== -1) {
+        var currentId = (data[foundRowIndex - 1][idIdx] || '').toString().trim();
+        if (!currentId) {
+          sheet.getRange(foundRowIndex, idIdx + 1).setValue(AppUtils.generateId('mgr'));
+        }
+      }
+
+      AppUtils.invalidate('Managers');
+      _profileCache = {};
+      AppUtils.writeLog(callerEmail, 'UPDATE_MANAGER', 'Managers', 'Manager updated: ' + email + ' (' + role + ')', 'SUCCESS');
+      return { success: true, updated: true };
+    } else {
+      var res = addRow('Managers', {
+        name: name,
+        email: email,
+        role: role
+      });
+      _profileCache = {};
+      return res;
+    }
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
 }
 
 // ── Seed Questions (run once from Apps Script editor) ──────────────────────

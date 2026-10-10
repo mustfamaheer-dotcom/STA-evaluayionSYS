@@ -828,7 +828,7 @@ function loadModule(name){
         +'<div class="card-body"><form id="frm-mgr" onsubmit="submitManager(event)" style="display:flex;flex-direction:column;gap:18px;">'
           +fld('الاسم الكامل','<input type="text" id="mgr-name" class="form-input" required>')
           +fld('البريد الإلكتروني','<input type="email" id="mgr-email" class="form-input" required placeholder="user@gmail.com">')
-          +fld('الدور','<select id="mgr-role" class="form-input" required><option value="معلم">معلم</option><option value="مدير">مدير</option><option value="ADMIN">مدير النظام</option></select>')
+          +fld('الدور','<select id="mgr-role" class="form-input" required><option value="مدير" selected>مدير</option><option value="ADMIN">مدير النظام</option><option value="معلم">معلم</option></select>')
           +'<button type="submit" id="mgr-btn" class="btn-primary">منح الصلاحية</button>'
         +'</form></div>'
       +'</div>'
