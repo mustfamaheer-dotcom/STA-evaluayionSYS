@@ -6,3 +6,6 @@
 !*.js
 !*.html
 !appsscript.json
+
+# Exclude scratch migration scripts
+ImportHistoricalData.*

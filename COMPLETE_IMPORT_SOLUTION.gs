@@ -3,10 +3,10 @@
 //  Percentages (0-1) → 1-5 scale correctly, no "Historical Import"
 // ============================================================
 
-const SOURCE_SPREADSHEET_ID = '1PjYrQXH1QEMfeMXfVYmmIgZNLi5RBSCM21hRx_9ijEM';
-const TARGET_SPREADSHEET_ID = '1X2Vuyxkm0eoYevjXQT52bWiA_tXri16hzXSBkY3FOCU';
+var SOURCE_SPREADSHEET_ID = '1PjYrQXH1QEMfeMXfVYmmIgZNLi5RBSCM21hRx_9ijEM';
+var TARGET_SPREADSHEET_ID = '1X2Vuyxkm0eoYevjXQT52bWiA_tXri16hzXSBkY3FOCU';
 
-const DOMAIN_MAP = {
+var DOMAIN_MAP = {
   'CA': 'الإدارة الصفية',
   'TP': 'التخطيط للدرس',
   'AE': 'التقويم',

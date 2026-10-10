@@ -13,10 +13,10 @@
  * 5. Run importHistoricalEvaluations() from Apps Script editor
  */
 
-const SOURCE_SPREADSHEET_ID = 'PUT_YOUR_SOURCE_SPREADSHEET_ID_HERE'; // The Google Sheets ID after uploading eval-sum.xlsx
+var SOURCE_SPREADSHEET_ID = 'PUT_YOUR_SOURCE_SPREADSHEET_ID_HERE'; // The Google Sheets ID after uploading eval-sum.xlsx
 
 // Domain code → Question category mapping
-const DOMAIN_TO_CATEGORY = {
+var DOMAIN_TO_CATEGORY = {
   'CA': 'الإدارة الصفية',
   'TP': 'التخطيط للدرس',
   'AE': 'التقويم',
