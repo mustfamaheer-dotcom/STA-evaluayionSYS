@@ -22,9 +22,40 @@ jobs:
         run: npm install -g @google/clasp
 
       - name: Setup Clasp Auth & Configuration
+        env:
+          CLASPRC_RAW: ${{ secrets.CLASPRC_JSON }}
+          SCRIPT_ID: ${{ secrets.SCRIPT_ID }}
         run: |
-          echo "${{ secrets.CLASPRC_JSON }}" > ~/.clasprc.json
-          echo "{\"scriptId\":\"${{ secrets.SCRIPT_ID }}\",\"rootDir\":\".\"}" > .clasp.json
+          node -e '
+            const fs = require("fs");
+            const os = require("os");
+            const path = require("path");
+            let raw = (process.env.CLASPRC_RAW || "").trim();
+            if (!raw) {
+              console.error("Error: CLASPRC_JSON secret is empty");
+              process.exit(1);
+            }
+            if ((raw.startsWith("\"") && raw.endsWith("\"")) || (raw.startsWith("\x27") && raw.endsWith("\x27"))) {
+              raw = raw.slice(1, -1);
+            }
+            let data;
+            try {
+              data = JSON.parse(raw);
+            } catch (e) {
+              try {
+                data = JSON.parse(raw.replace(/\\n/g, "\n").replace(/\\"/g, "\""));
+              } catch (e2) {
+                console.error("Failed to parse CLASPRC_JSON:", e.message);
+                process.exit(1);
+              }
+            }
+            fs.writeFileSync(path.join(os.homedir(), ".clasprc.json"), JSON.stringify(data, null, 2), "utf8");
+            console.log("Successfully prepared ~/.clasprc.json (keys:", Object.keys(data), ")");
+
+            const scriptId = (process.env.SCRIPT_ID || "").trim() || "1KZ6YuM9Hty09nSqOfUAA9jW-dg2Sa3ZMc0Rhqb_M0KXm6xppy4efR_en";
+            fs.writeFileSync(".clasp.json", JSON.stringify({ scriptId, rootDir: "." }, null, 2), "utf8");
+            console.log("Using scriptId:", scriptId);
+          '
 
       - name: Push Code to Apps Script
         run: clasp push --force
