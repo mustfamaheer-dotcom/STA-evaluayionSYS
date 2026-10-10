@@ -30,4 +30,4 @@ jobs:
         run: clasp push --force
 
       - name: Deploy Apps Script Web App
-        run: clasp deploy --description "Auto-deploy commit ${{ github.sha }}" || true
+        run: clasp deploy -i AKfycbxh-fZpL4u5Wu0lY6-v1gwkp6BbhIxyYAYRxf23raJq-82gpf8PCiRbCifrqnpjGY1K --description "Auto-deploy commit ${{ github.sha }}" || clasp deploy --description "Auto-deploy commit ${{ github.sha }}" || true
