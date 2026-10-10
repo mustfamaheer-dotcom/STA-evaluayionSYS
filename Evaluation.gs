@@ -236,10 +236,75 @@ function getDashboardStats(filters) {
   filters = filters || {};
   var filterManagerEmail = filters.filterManagerEmail || filters.managerEmail || null;
   var filterEmployeeId   = filters.filterEmployeeId   || filters.employeeId   || null;
+  var filterMonth        = (filters.filterMonth        || filters.month        || '').toString().trim();
+  if (filterMonth.toLowerCase() === 'all') filterMonth = '';
+
+  var ARABIC_MONTH_NAMES = [
+    'يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو',
+    'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'
+  ];
+
+  function extractMonthKey(val) {
+    if (!val) return '';
+    var d = null;
+    if (val instanceof Date) {
+      d = isNaN(val.getTime()) ? null : val;
+    } else {
+      var s = String(val).trim();
+      if (!s) return '';
+      d = new Date(s);
+      if (isNaN(d.getTime())) {
+        var parts = s.split(/[\/\-\.T\s]/);
+        if (parts.length >= 3) {
+          if (parts[0].length === 4) {
+            d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+          } else if (parts[2].length === 4) {
+            d = new Date(parseInt(parts[2], 10), parseInt(parts[1], 10) - 1, parseInt(parts[0], 10));
+          }
+        }
+      }
+    }
+    if (!d || isNaN(d.getTime())) return '';
+    var y = d.getFullYear();
+    var m = ('0' + (d.getMonth() + 1)).slice(-2);
+    return y + '-' + m;
+  }
+
+  function formatMonthLabel(key) {
+    if (!key || key.indexOf('-') === -1) return key;
+    var parts = key.split('-');
+    var y = parts[0];
+    var mIdx = parseInt(parts[1], 10) - 1;
+    var mName = (mIdx >= 0 && mIdx < 12) ? ARABIC_MONTH_NAMES[mIdx] : ('شهر ' + parts[1]);
+    return mName + ' ' + y;
+  }
 
   var evaluations = AppUtils.sheetToObjects('Evaluations');
   var questions    = AppUtils.sheetToObjects('Questions');
   var employees    = AppUtils.sheetToObjects('Employees');
+
+  // Collect all available months across evaluations (for the dropdown)
+  var monthCounts = {};
+  for (var mvi = 0; mvi < evaluations.length; mvi++) {
+    var mev = evaluations[mvi];
+    var mmgr = (mev['manager_email'] || '').toString();
+    if (filterManagerEmail && mmgr.toLowerCase() !== filterManagerEmail.toLowerCase()) continue;
+    var mKey = extractMonthKey(mev['submitted_at']);
+    if (mKey) {
+      monthCounts[mKey] = (monthCounts[mKey] || 0) + 1;
+    }
+  }
+
+  var availableMonths = [];
+  var sortedMonthKeys = Object.keys(monthCounts).sort().reverse();
+  for (var smi = 0; smi < sortedMonthKeys.length; smi++) {
+    var mk = sortedMonthKeys[smi];
+    availableMonths.push({
+      key:   mk,
+      label: formatMonthLabel(mk),
+      count: monthCounts[mk]
+    });
+  }
 
   var semCounts    = {};
   var scoreBuckets = { excellent: 0, good: 0, average: 0, poor: 0 };
@@ -269,6 +334,7 @@ function getDashboardStats(filters) {
 
     if (filterManagerEmail && mgrEmail.toLowerCase() !== filterManagerEmail.toLowerCase()) continue;
     if (filterEmployeeId   && empId               !== filterEmployeeId)                      continue;
+    if (filterMonth && extractMonthKey(ev['submitted_at']) !== filterMonth)                  continue;
 
     var score   = parseFloat(ev['avg_score']);
     var school  = AppUtils.normalizeSchool((ev['school'] || '').toString()) || 'غير محدد';
@@ -317,10 +383,12 @@ function getDashboardStats(filters) {
   var totalEvals = scoreCount;
   var overallAvg  = scoreCount > 0 ? (scoreSum / scoreCount).toFixed(2) : '0.00';
 
-  // Count unique teachers (respecting manager filter)
+  // Count unique teachers (respecting manager filter and month filter)
   var uniqT = {};
   for (var ut = 0; ut < evaluations.length; ut++) {
     if (filterManagerEmail && (evaluations[ut]['manager_email'] || '').toString().toLowerCase() !== filterManagerEmail.toLowerCase()) continue;
+    if (filterEmployeeId   && (evaluations[ut]['teacher_id'] || '').toString() !== filterEmployeeId) continue;
+    if (filterMonth && extractMonthKey(evaluations[ut]['submitted_at']) !== filterMonth) continue;
     var utId = (evaluations[ut]['teacher_id'] || '').toString().trim();
     if (utId) uniqT[utId] = true;
   }
@@ -365,7 +433,7 @@ function getDashboardStats(filters) {
     semesterBreakdown.push({ semester: semKeys[si], count: semCounts[semKeys[si]] });
   }
 
-var managersRows = AppUtils.sheetToObjects('Managers');
+  var managersRows = AppUtils.sheetToObjects('Managers');
   var managerNameMap = {};
   for (var mi = 0; mi < managersRows.length; mi++) {
     var mEmail = (managersRows[mi]['email'] || '').toString().toLowerCase().trim();
@@ -381,6 +449,7 @@ var managersRows = AppUtils.sheetToObjects('Managers');
     var tId  = (evaluations[vi2]['teacher_id']    || '').toString();
     if (filterManagerEmail && mgrE.toLowerCase() !== filterManagerEmail.toLowerCase()) continue;
     if (filterEmployeeId   && tId               !== filterEmployeeId)                      continue;
+    if (filterMonth && extractMonthKey(evaluations[vi2]['submitted_at']) !== filterMonth)  continue;
     evalIds[evId] = true;
   }
   var evalIdKeys = Object.keys(evalIds);
@@ -437,6 +506,8 @@ var managersRows = AppUtils.sheetToObjects('Managers');
     var ev3       = allEvals[vi3];
     var mgrEmail3 = (ev3['manager_email'] || '').toString().toLowerCase().trim();
     if (filterManagerEmail && mgrEmail3 !== filterManagerEmail.toLowerCase()) continue;
+    if (filterEmployeeId   && (ev3['teacher_id'] || '').toString() !== filterEmployeeId) continue;
+    if (filterMonth && extractMonthKey(ev3['submitted_at']) !== filterMonth) continue;
     if (!mgrCounts[mgrEmail3]) mgrCounts[mgrEmail3] = { name: managerNameMap[mgrEmail3] || mgrEmail3, count: 0 };
     mgrCounts[mgrEmail3].count++;
   }
@@ -448,14 +519,14 @@ var managersRows = AppUtils.sheetToObjects('Managers');
   managerEvalCounts.sort(function(a, b) { return b.count - a.count; });
 
   var recent = [];
-  var start  = Math.max(0, evaluations.length - 8);
-  for (var ri = evaluations.length - 1; ri >= start; ri--) {
+  for (var ri = evaluations.length - 1; ri >= 0; ri--) {
     var ev2       = evaluations[ri];
     var mgrEmail2 = (ev2['manager_email'] || '').toString().toLowerCase().trim();
-    var empId2    = (ev2['employee_id']    || '').toString();
+    var empId2    = (ev2['teacher_id']    || ev2['employee_id'] || '').toString();
 
     if (filterManagerEmail && mgrEmail2.toLowerCase() !== filterManagerEmail.toLowerCase()) continue;
     if (filterEmployeeId   && empId2               !== filterEmployeeId)                      continue;
+    if (filterMonth && extractMonthKey(ev2['submitted_at']) !== filterMonth)                 continue;
 
     var dv    = ev2['submitted_at'] || '';
     var ds    = '—';
@@ -555,7 +626,9 @@ var managersRows = AppUtils.sheetToObjects('Managers');
     managerEvalCounts:    managerEvalCounts,
     branchDeptAverages:   branchDeptAverages,
     departmentCategoryAverages: departmentCategoryAverages,
-    appliedFilters:      { managerEmail: filterManagerEmail, employeeId: filterEmployeeId }
+    availableMonths:      availableMonths,
+    selectedMonth:        filterMonth,
+    appliedFilters:      { managerEmail: filterManagerEmail, employeeId: filterEmployeeId, month: filterMonth }
   };
 }
 

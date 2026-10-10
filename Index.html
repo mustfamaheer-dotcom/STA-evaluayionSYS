@@ -576,10 +576,30 @@ function loadModule(name){
           +'</div>'
         +'</div>'
       +'</div>'
-      +'<div style="display:flex;justify-content:flex-end;margin-bottom:16px;">'
-        +'<button onclick="exportDashboardPDF()" class="btn-primary" style="width:auto;padding:9px 20px;font-size:0.8rem;display:flex;align-items:center;gap:8px;">'
-          +'<i class="fas fa-file-pdf"></i><span>تصدير PDF</span>'
-        +'</button>'
+      +'<!-- Month Filter Bar -->'
+      +'<div style="background:#fff;border:1px solid var(--glass-border);border-radius:14px;padding:12px 18px;margin-bottom:18px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;box-shadow:0 2px 8px rgba(15,23,42,0.03);">'
+        +'<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">'
+          +'<div style="display:flex;align-items:center;gap:8px;font-size:0.82rem;font-weight:700;color:var(--text-secondary);">'
+            +'<div style="width:34px;height:34px;border-radius:8px;background:rgba(211,47,47,0.08);display:flex;align-items:center;justify-content:center;color:var(--sta-red);">'
+              +'<i class="fas fa-calendar-alt" style="font-size:0.95rem;"></i>'
+            +'</div>'
+            +'<span>تصفية حسب الشهر:</span>'
+          +'</div>'
+          +'<div style="position:relative;min-width:240px;">'
+            +'<select id="dashboard-month-filter" class="form-input" style="padding:8px 14px;font-size:0.82rem;font-weight:600;border-radius:10px;background:#F8FAFC;cursor:pointer;" onchange="onDashboardMonthChange(this.value)">'
+              +'<option value="all">📅 جميع الأشهر (كافة التقييمات)</option>'
+            +'</select>'
+          +'</div>'
+          +'<span id="dashboard-month-badge" style="display:none;font-size:0.72rem;font-weight:700;padding:5px 12px;border-radius:20px;background:rgba(211,47,47,0.08);color:var(--sta-red);border:1px solid rgba(211,47,47,0.2);"></span>'
+          +'<span id="dashboard-loading-indicator" style="display:none;font-size:0.75rem;color:var(--text-muted);align-items:center;gap:6px;">'
+            +'<i class="fas fa-spinner fa-spin" style="color:var(--sta-red);"></i> جاري تحديث البيانات...'
+          +'</span>'
+        +'</div>'
+        +'<div style="display:flex;align-items:center;gap:8px;">'
+          +'<button onclick="exportDashboardPDF()" class="btn-primary" style="width:auto;padding:8px 18px;font-size:0.8rem;display:flex;align-items:center;gap:8px;border-radius:10px;">'
+            +'<i class="fas fa-file-pdf"></i><span>تصدير PDF</span>'
+          +'</button>'
+        +'</div>'
       +'</div>'
       +'<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:16px;">'
         +'<div class="stat-card" id="kpi-total-evals"><div class="skel" style="width:48px;height:48px;border-radius:12px;flex-shrink:0;"></div><div style="flex:1;"><div class="skel" style="height:10px;width:70%;margin-bottom:8px;"></div><div class="skel" style="height:28px;width:50%;"></div></div></div>'
@@ -2177,6 +2197,32 @@ function filterDeptRank(branch){
 
 function renderDashboard(stats){
   try {
+  // Update Month Filter Options & Badge
+  if(stats.availableMonths && stats.availableMonths.length){
+    var mSel = document.getElementById('dashboard-month-filter');
+    if(mSel){
+      var curVal = stats.selectedMonth || window._currentDashboardMonth || 'all';
+      var optsHtml = '<option value="all">📅 جميع الأشهر (كافة التقييمات)</option>';
+      stats.availableMonths.forEach(function(m){
+        var isSel = (m.key === curVal) ? 'selected' : '';
+        optsHtml += '<option value="' + esc(m.key) + '" ' + isSel + '>' + esc(m.label) + ' (' + m.count + ' تقييم)</option>';
+      });
+      mSel.innerHTML = optsHtml;
+      mSel.value = curVal;
+
+      var mBadge = document.getElementById('dashboard-month-badge');
+      if(mBadge){
+        if(curVal && curVal !== 'all'){
+          var matched = stats.availableMonths.find(function(m){ return m.key === curVal; });
+          mBadge.textContent = 'محدد: ' + (matched ? matched.label : curVal);
+          mBadge.style.display = 'inline-block';
+        } else {
+          mBadge.style.display = 'none';
+        }
+      }
+    }
+  }
+
   var el;
   var avg=parseFloat(stats.overallAvg)||0;
   var pct=Math.round((avg/5)*100);
@@ -2441,6 +2487,10 @@ function onCatInsightEmpChange(){
     return;
   }
   el.innerHTML='<div style="text-align:center;padding:30px;color:#BDBDBD;"><i class="fas fa-spinner fa-spin" style="font-size:1.2rem;display:block;margin-bottom:8px;"></i>جاري تحميل البيانات...</div>';
+  var filterPayload = { employeeId: empId };
+  if(window._currentDashboardMonth && window._currentDashboardMonth !== 'all'){
+    filterPayload.month = window._currentDashboardMonth;
+  }
   google.script.run
     .withSuccessHandler(function(stats){
       var bestCat = null;
@@ -2456,7 +2506,7 @@ function onCatInsightEmpChange(){
     .withFailureHandler(function(){
       el.innerHTML='<div style="text-align:center;padding:30px;color:#C62828;font-size:0.82rem;">خطأ في تحميل البيانات</div>';
     })
-    .getDashboardStats({employeeId: empId});
+    .getDashboardStats(filterPayload);
 }
 
 function renderCatInsightChart(categories, overallAvg, empId, totalEvals, bestCat, worstCat){
@@ -3433,14 +3483,38 @@ function renderMyEvaluations(data){
 }
 
 /* ── DASHBOARD FILTERS & PDF EXPORT ──────────────────────────────────────── */
-function loadDashboardData(){
+window._currentDashboardMonth = 'all';
+
+function onDashboardMonthChange(monthKey){
+  window._currentDashboardMonth = monthKey || 'all';
+  loadDashboardData(window._currentDashboardMonth);
+
+  // If a teacher is selected in category insight, update their breakdown too
+  var empSel = document.getElementById('cat-ins-emp');
+  if(empSel && empSel.value){
+    onCatInsightEmpChange();
+  }
+}
+
+function loadDashboardData(monthKey){
+  var m = (monthKey !== undefined) ? monthKey : (window._currentDashboardMonth || 'all');
+  var indicator = document.getElementById('dashboard-loading-indicator');
+  if(indicator) indicator.style.display = 'inline-flex';
+
+  var filterPayload = {};
+  if(m && m !== 'all') filterPayload.month = m;
+
   google.script.run
-    .withSuccessHandler(renderDashboard)
+    .withSuccessHandler(function(stats){
+      if(indicator) indicator.style.display = 'none';
+      renderDashboard(stats);
+    })
     .withFailureHandler(function(e){
-      var el=document.getElementById('dist-body');
+      if(indicator) indicator.style.display = 'none';
+      var el=document.getElementById('recent-body');
       if(el) el.innerHTML=errBox('فشل في التحميل: '+esc(e.message||e));
     })
-    .getDashboardStats();
+    .getDashboardStats(filterPayload);
 }
 
 function exportDashboardPDF(){
@@ -3537,7 +3611,9 @@ function exportDashboardPDF(){
 
   var filterEmp=document.getElementById('filter-employee');
   var filterMgr=document.getElementById('filter-manager');
+  var monthSel=document.getElementById('dashboard-month-filter');
   var filterLine='';
+  if(monthSel&&monthSel.value&&monthSel.value!=='all') filterLine+='الشهر: <strong>'+monthSel.options[monthSel.selectedIndex].text+'</strong>&nbsp;&nbsp;';
   if(filterEmp&&filterEmp.value) filterLine+='المعلم: <strong>'+filterEmp.options[filterEmp.selectedIndex].text+'</strong>&nbsp;&nbsp;';
   if(filterMgr&&filterMgr.value) filterLine+='المدير: <strong>'+filterMgr.options[filterMgr.selectedIndex].text+'</strong>';
 
