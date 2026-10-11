@@ -2802,7 +2802,7 @@ function loadTeacherAndGradeDropdowns(){
   var deptSel   = document.getElementById('basic-dept');
   var nameSel   = document.getElementById('basic-name');
 
-  if(branchSel) branchSel.innerHTML = '<option value="">جاري تحميل الفروع المتاحة...</option>';
+  if(branchSel) branchSel.innerHTML = '<option value="">جاري تحميل الفروع من جدول الفروع...</option>';
   if(deptSel){ deptSel.innerHTML = '<option value="">— اختر الفرع أولاً —</option>'; deptSel.disabled = true; }
   if(nameSel){ nameSel.innerHTML = '<option value="">— اختر القسم أولاً —</option>'; nameSel.disabled = true; }
 
@@ -2812,41 +2812,26 @@ function loadTeacherAndGradeDropdowns(){
   if(schoolEl) schoolEl.value = '';
 
   google.script.run
-    .withSuccessHandler(function(teachers){
+    .withSuccessHandler(function(data){
       var branchSel = document.getElementById('basic-branch');
       var deptSel   = document.getElementById('basic-dept');
       var nameSel   = document.getElementById('basic-name');
       if(!branchSel) return;
 
-      _managerTeachersList = teachers || [];
-      _teacherMap = {};
-      _branchDeptsMap = {};
-      _branchesList = [];
-
       var existingWarning = document.getElementById('mgr-no-teachers-alert');
       if(existingWarning && existingWarning.parentNode) existingWarning.parentNode.removeChild(existingWarning);
 
-      if(!_managerTeachersList.length){
-        branchSel.innerHTML = '<option value="">— لا توجد فروع متاحة —</option>';
+      if(!data || !data.branches || !data.branches.length){
+        branchSel.innerHTML = '<option value="">— لا توجد فروع مسجلة في جدول الفروع —</option>';
         branchSel.disabled = true;
-        if(deptSel){ deptSel.innerHTML = '<option value="">— غير متاح —</option>'; deptSel.disabled = true; }
-        if(nameSel){ nameSel.innerHTML = '<option value="">— غير متاح —</option>'; nameSel.disabled = true; }
-
-        var alertDiv = document.createElement('div');
-        alertDiv.id = 'mgr-no-teachers-alert';
-        alertDiv.style.cssText = 'margin-top:10px;padding:12px 16px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.25);border-radius:10px;color:#b45309;font-size:0.8rem;display:flex;align-items:center;gap:10px;';
-        alertDiv.innerHTML = '<i class="fas fa-exclamation-triangle" style="font-size:1.1rem;flex-shrink:0;"></i><span>لم يتم تعيين أقسام أو فروع لك بعد، أو لا يوجد معلمين في نطاقك. تواصل مع مدير النظام لربط حسابك بالأقسام.</span>';
-        if(branchSel && branchSel.parentNode && branchSel.parentNode.parentNode) {
-          branchSel.parentNode.parentNode.parentNode.appendChild(alertDiv);
-        }
         return;
       }
 
-      branchSel.disabled = false;
-      var branchesMap = {};
-
-      for(var i = 0; i < _managerTeachersList.length; i++){
-        var t = _managerTeachersList[i];
+      _evalFormData = data;
+      _teacherMap = {};
+      var teachers = data.teachers || [];
+      for(var i = 0; i < teachers.length; i++){
+        var t = teachers[i];
         _teacherMap[t.id] = {
           id: t.id,
           name: t.name,
@@ -2856,38 +2841,26 @@ function loadTeacherAndGradeDropdowns(){
           deptId: t.deptId || '',
           position: t.spec || ''
         };
-
-        var bId = (t.branchId || 'main').toString().trim();
-        var bName = t.school || ('فرع ' + bId);
-        if(!branchesMap[bId]){
-          branchesMap[bId] = bName;
-          _branchesList.push({ id: bId, name: bName });
-          _branchDeptsMap[bId] = {};
-        }
-
-        var dId = (t.deptId || 'general').toString().trim();
-        var dName = t.dept || dId;
-        if(!_branchDeptsMap[bId][dId]){
-          _branchDeptsMap[bId][dId] = dName;
-        }
       }
 
+      // Populate branches dropdown DIRECTLY from Branches sheet
+      branchSel.disabled = false;
       var bo = '<option value="">— اختر الفرع —</option>';
-      for(var bi = 0; bi < _branchesList.length; bi++){
-        bo += '<option value="' + esc(_branchesList[bi].id) + '">' + esc(_branchesList[bi].name) + '</option>';
+      for(var bi = 0; bi < data.branches.length; bi++){
+        bo += '<option value="' + esc(data.branches[bi].id) + '">' + esc(data.branches[bi].name) + '</option>';
       }
       branchSel.innerHTML = bo;
 
-      if(_branchesList.length === 1){
-        branchSel.value = _branchesList[0].id;
+      if(data.branches.length === 1){
+        branchSel.value = data.branches[0].id;
         onBranchChange();
       }
     })
     .withFailureHandler(function(e){
       var branchSel = document.getElementById('basic-branch');
-      if(branchSel) branchSel.innerHTML = '<option value="">خطأ في التحميل: ' + esc(e.message || e) + '</option>';
+      if(branchSel) branchSel.innerHTML = '<option value="">خطأ في تحميل الفروع: ' + esc(e.message || e) + '</option>';
     })
-    .getTeachersForCurrentManager();
+    .getEvaluationFormData();
 }
 
 /* ── Evaluation form interactions ────────────────────────────────────────── */
@@ -3019,7 +2992,7 @@ function restoreStarRating(qid,val){
 function v(id){var el=document.getElementById(id);return el?el.value:'';}
 
 /* ── Cascading dropdowns ─────────────────────────────────────────────── */
-var _teacherMap={}, _deptMap={}, _managerTeachersList=[], _branchesList=[], _branchDeptsMap={};
+var _teacherMap={}, _evalFormData=null;
 
 function onBranchChange(){
   var branchId=v('basic-branch');
@@ -3029,34 +3002,59 @@ function onBranchChange(){
   var specEl=document.getElementById('basic-spec');
 
   if(specEl) specEl.value='';
-  if(schoolEl){
-    var bObj=_branchesList.find(function(b){return b.id===branchId;});
-    schoolEl.value=bObj?bObj.name:'';
+
+  if(!_evalFormData || !branchId){
+    if(schoolEl) schoolEl.value='';
+    if(deptSel){ deptSel.innerHTML='<option value="">— اختر الفرع أولاً —</option>'; deptSel.disabled=true; }
+    if(nameSel){ nameSel.innerHTML='<option value="">— اختر القسم أولاً —</option>'; nameSel.disabled=true; }
+    resetClassFieldsAndQuestions();
+    return;
+  }
+
+  // Find branch object directly from Branches sheet data
+  var bObj=_evalFormData.branches.find(function(b){return b.id===branchId;});
+  var branchName=bObj?bObj.name:branchId;
+  if(schoolEl) schoolEl.value=branchName;
+
+  // Filter departments for this branch
+  var mappedDepts=(_evalFormData.branchDeptMap&&_evalFormData.branchDeptMap[branchId])||null;
+  var teacherDepts={};
+  var teachers=_evalFormData.teachers||[];
+  for(var i=0;i<teachers.length;i++){
+    var t=teachers[i];
+    if(t.branchId===branchId || (t.school&&t.school.trim().toLowerCase()===branchName.trim().toLowerCase())){
+      if(t.deptId) teacherDepts[t.deptId]=true;
+      if(t.dept) teacherDepts[t.dept]=true;
+    }
+  }
+
+  var availableDepts=_evalFormData.departments.filter(function(d){
+    if(mappedDepts&&(mappedDepts[d.id]||mappedDepts[d.name])) return true;
+    if(teacherDepts[d.id]||teacherDepts[d.name]) return true;
+    if(!mappedDepts&&Object.keys(teacherDepts).length===0) return true;
+    return false;
+  });
+
+  if(!availableDepts.length){
+    availableDepts=_evalFormData.departments;
   }
 
   if(deptSel){
-    if(!branchId){
-      deptSel.innerHTML='<option value="">— اختر الفرع أولاً —</option>';
+    if(!availableDepts.length){
+      deptSel.innerHTML='<option value="">— لا توجد أقسام مسجلة لهذا الفرع —</option>';
       deptSel.disabled=true;
     } else {
-      var deptsObj=_branchDeptsMap[branchId]||{};
-      var deptKeys=Object.keys(deptsObj);
-      if(deptKeys.length===0){
-        deptSel.innerHTML='<option value="">— لا توجد أقسام متاحة لهذا الفرع —</option>';
-        deptSel.disabled=true;
-      } else {
-        var dHtml='<option value="">— اختر القسم —</option>';
-        for(var di=0;di<deptKeys.length;di++){
-          dHtml+='<option value="'+esc(deptKeys[di])+'">'+esc(deptsObj[deptKeys[di]])+'</option>';
-        }
-        deptSel.innerHTML=dHtml;
-        deptSel.disabled=false;
+      var dHtml='<option value="">— اختر القسم —</option>';
+      for(var di=0;di<availableDepts.length;di++){
+        dHtml+='<option value="'+esc(availableDepts[di].id)+'">'+esc(availableDepts[di].name)+'</option>';
+      }
+      deptSel.innerHTML=dHtml;
+      deptSel.disabled=false;
 
-        if(deptKeys.length===1){
-          deptSel.value=deptKeys[0];
-          onDeptChange();
-          return;
-        }
+      if(availableDepts.length===1){
+        deptSel.value=availableDepts[0].id;
+        onDeptChange();
+        return;
       }
     }
   }
@@ -3075,39 +3073,47 @@ function onDeptChange(){
   var nameSel=document.getElementById('basic-name');
   var specEl=document.getElementById('basic-spec');
 
-  if(specEl){
-    var deptsObj=_branchDeptsMap[branchId]||{};
-    specEl.value=deptsObj[deptId]||'';
+  if(!_evalFormData || !branchId || !deptId){
+    if(specEl) specEl.value='';
+    if(nameSel){ nameSel.innerHTML='<option value="">— اختر القسم أولاً —</option>'; nameSel.disabled=true; }
+    resetClassFieldsAndQuestions();
+    return;
   }
 
+  var bObj=_evalFormData.branches.find(function(b){return b.id===branchId;});
+  var branchName=bObj?bObj.name:branchId;
+
+  var dObj=_evalFormData.departments.find(function(d){return d.id===deptId;});
+  var deptName=dObj?dObj.name:deptId;
+  if(specEl) specEl.value=deptName;
+
+  var teachers=_evalFormData.teachers||[];
+  var filteredTeachers=teachers.filter(function(t){
+    var matchBranch=(t.branchId===branchId) ||
+                    (t.school&&branchName&&t.school.trim().toLowerCase()===branchName.trim().toLowerCase());
+    var matchDept=(t.deptId===deptId) ||
+                  (t.dept&&deptName&&t.dept.trim().toLowerCase()===deptName.trim().toLowerCase());
+    return matchBranch && matchDept;
+  });
+
   if(nameSel){
-    if(!deptId){
-      nameSel.innerHTML='<option value="">— اختر القسم أولاً —</option>';
+    if(!filteredTeachers.length){
+      nameSel.innerHTML='<option value="">— لا يوجد معلمين في هذا القسم والفرع —</option>';
       nameSel.disabled=true;
     } else {
-      var filteredTeachers=_managerTeachersList.filter(function(t){
-        return ((t.branchId||'main').toString().trim()===branchId) &&
-               ((t.deptId||'general').toString().trim()===deptId);
-      });
+      var nHtml='<option value="">— اختر المعلم —</option>';
+      for(var ti=0;ti<filteredTeachers.length;ti++){
+        var t=filteredTeachers[ti];
+        var extra=t.spec?(' ('+esc(t.spec)+')'):'';
+        nHtml+='<option value="'+esc(t.id)+'">'+esc(t.name)+extra+'</option>';
+      }
+      nameSel.innerHTML=nHtml;
+      nameSel.disabled=false;
 
-      if(!filteredTeachers.length){
-        nameSel.innerHTML='<option value="">— لا يوجد معلمين في هذا القسم —</option>';
-        nameSel.disabled=true;
-      } else {
-        var nHtml='<option value="">— اختر المعلم —</option>';
-        for(var ti=0;ti<filteredTeachers.length;ti++){
-          var t=filteredTeachers[ti];
-          var extra=t.spec?(' ('+esc(t.spec)+')'):'';
-          nHtml+='<option value="'+esc(t.id)+'">'+esc(t.name)+extra+'</option>';
-        }
-        nameSel.innerHTML=nHtml;
-        nameSel.disabled=false;
-
-        if(filteredTeachers.length===1){
-          nameSel.value=filteredTeachers[0].id;
-          onTeacherChange();
-          return;
-        }
+      if(filteredTeachers.length===1){
+        nameSel.value=filteredTeachers[0].id;
+        onTeacherChange();
+        return;
       }
     }
   }
@@ -3121,12 +3127,17 @@ function onTeacherChange(){
   var specEl=document.getElementById('basic-spec');
   var schoolEl=document.getElementById('basic-school');
 
+  var branchId=v('basic-branch');
+  var deptId=v('basic-dept');
+  var bObj=(_evalFormData&&_evalFormData.branches)?_evalFormData.branches.find(function(b){return b.id===branchId;}):null;
+  var dObj=(_evalFormData&&_evalFormData.departments)?_evalFormData.departments.find(function(d){return d.id===deptId;}):null;
+
   if(t){
-    if(specEl) specEl.value=t.dept||t.spec||'';
-    if(schoolEl) schoolEl.value=t.school||'';
+    if(specEl) specEl.value=(dObj?dObj.name:'')||t.dept||t.spec||'';
+    if(schoolEl) schoolEl.value=(bObj?bObj.name:'')||t.school||'';
   } else {
-    if(specEl) specEl.value='';
-    if(schoolEl) schoolEl.value='';
+    if(specEl) specEl.value=(dObj?dObj.name:'');
+    if(schoolEl) schoolEl.value=(bObj?bObj.name:'');
   }
 
   resetClassFieldsAndQuestions();

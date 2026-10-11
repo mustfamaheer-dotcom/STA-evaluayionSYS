@@ -836,6 +836,69 @@ function getTeachersForCurrentManager() {
 }
 
 /**
+ * Returns complete cascading data for the Classroom Observation form:
+ * - branches: directly from the 'Branches' sheet
+ * - departments: directly from the 'Departments' sheet
+ * - branchDeptMap: mapping from 'BranchDepartments' sheet
+ * - teachers: teachers accessible to current manager (scoped by permissions)
+ */
+function getEvaluationFormData() {
+  var callerEmail = '';
+  try { callerEmail = Session.getActiveUser().getEmail(); } catch (e) {}
+  PermissionGuard.require(callerEmail, 'canEvaluate');
+
+  // 1. Branches directly from the Branches sheet
+  var branchRows = getActiveRows('Branches');
+  var branches = branchRows.map(function(b) {
+    var bId = (b['branch_id'] || '').toString().trim();
+    var bName = (b['branch_name'] || b['name'] || '').toString().trim();
+    if (!bId) bId = bName;
+    return {
+      id: bId,
+      name: bName
+    };
+  }).filter(function(b) {
+    return b.name !== '';
+  });
+
+  // 2. Departments directly from the Departments sheet
+  var deptRows = getActiveRows('Departments');
+  var depts = deptRows.map(function(d) {
+    var dId = (d['department_id'] || '').toString().trim();
+    var dName = (d['department_name'] || d['name'] || '').toString().trim();
+    if (!dId) dId = dName;
+    return {
+      id: dId,
+      name: dName
+    };
+  }).filter(function(d) {
+    return d.name !== '';
+  });
+
+  // 3. BranchDepartments mapping
+  var bdRows = getActiveRows('BranchDepartments');
+  var branchDeptMap = {};
+  for (var i = 0; i < bdRows.length; i++) {
+    var bId = (bdRows[i]['branch_id'] || '').toString().trim();
+    var dId = (bdRows[i]['department_id'] || '').toString().trim();
+    if (bId && dId) {
+      if (!branchDeptMap[bId]) branchDeptMap[bId] = {};
+      branchDeptMap[bId][dId] = true;
+    }
+  }
+
+  // 4. Teachers for current manager
+  var teachers = getTeachersForCurrentManager();
+
+  return {
+    branches: branches,
+    departments: depts,
+    branchDeptMap: branchDeptMap,
+    teachers: teachers
+  };
+}
+
+/**
  * Returns all managers with their department assignments & scoped teacher count (for Admin UI)
  */
 function getManagersWithDepartments() {
