@@ -2762,10 +2762,12 @@ function renderEvalForm(){
             +'<span style="font-size:0.9rem;font-weight:700;color:var(--text-primary);">المعلومات الأساسية</span>'
           +'</div>'
           +'<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;">'
-            +'<div>'+fld('اسم المعلم','<select id="basic-name" class="form-input" required onchange="onTeacherChange()"><option value="">— اختر المعلم —</option></select>')+'</div>'
-            +'<div>'+fld('تخصص المعلم','<input type="text" id="basic-spec" class="form-input" readonly tabindex="-1" style="background:#F5F5F5;cursor:not-allowed;">')+'</div>'
-            +'<div>'+fld('المدرسة','<input type="text" id="basic-school" class="form-input" readonly tabindex="-1" style="background:#F5F5F5;cursor:not-allowed;">')+'</div>'
+            +'<div>'+fld('الفرع','<select id="basic-branch" class="form-input" required onchange="onBranchChange()"><option value="">— اختر الفرع —</option></select>')+'</div>'
+            +'<div>'+fld('القسم','<select id="basic-dept" class="form-input" required onchange="onDeptChange()" disabled><option value="">— اختر الفرع أولاً —</option></select>')+'</div>'
+            +'<div>'+fld('اسم المعلم','<select id="basic-name" class="form-input" required onchange="onTeacherChange()" disabled><option value="">— اختر القسم أولاً —</option></select>')+'</div>'
           +'</div>'
+          +'<input type="hidden" id="basic-spec">'
+          +'<input type="hidden" id="basic-school">'
           +'<div style="display:flex;align-items:center;padding:6px 0;margin:4px 0;">'
             +'<div style="flex:1;height:1px;background:linear-gradient(to right,transparent,rgba(211,47,47,0.2),rgba(211,47,47,0.4),rgba(211,47,47,0.2),transparent);"></div>'
             +'<div style="padding:0 16px;font-size:0.7rem;font-weight:700;color:var(--sta-red);background:rgba(211,47,47,0.04);border:1px solid rgba(211,47,47,0.15);border-radius:20px;white-space:nowrap;">بيانات الفصل</div>'
@@ -2796,44 +2798,94 @@ function renderEvalForm(){
 }
 
 function loadTeacherAndGradeDropdowns(){
-  /* teachers scoped by manager department assignments */
-  var sel=document.getElementById('basic-name');
-  if(sel) sel.innerHTML='<option value="">جاري تحميل المعلمين المتاحين...</option>';
+  var branchSel = document.getElementById('basic-branch');
+  var deptSel   = document.getElementById('basic-dept');
+  var nameSel   = document.getElementById('basic-name');
+
+  if(branchSel) branchSel.innerHTML = '<option value="">جاري تحميل الفروع المتاحة...</option>';
+  if(deptSel){ deptSel.innerHTML = '<option value="">— اختر الفرع أولاً —</option>'; deptSel.disabled = true; }
+  if(nameSel){ nameSel.innerHTML = '<option value="">— اختر القسم أولاً —</option>'; nameSel.disabled = true; }
+
+  var specEl = document.getElementById('basic-spec');
+  var schoolEl = document.getElementById('basic-school');
+  if(specEl) specEl.value = '';
+  if(schoolEl) schoolEl.value = '';
 
   google.script.run
     .withSuccessHandler(function(teachers){
-      var sel=document.getElementById('basic-name');
-      if(!sel) return;
-      _teacherMap={};
+      var branchSel = document.getElementById('basic-branch');
+      var deptSel   = document.getElementById('basic-dept');
+      var nameSel   = document.getElementById('basic-name');
+      if(!branchSel) return;
 
-      // Remove any existing no-teachers warning
+      _managerTeachersList = teachers || [];
+      _teacherMap = {};
+      _branchDeptsMap = {};
+      _branchesList = [];
+
       var existingWarning = document.getElementById('mgr-no-teachers-alert');
       if(existingWarning && existingWarning.parentNode) existingWarning.parentNode.removeChild(existingWarning);
 
-      if(!teachers || !teachers.length){
-        sel.innerHTML='<option value="">— لا يوجد معلمين في نطاقك —</option>';
-        sel.disabled=true;
+      if(!_managerTeachersList.length){
+        branchSel.innerHTML = '<option value="">— لا توجد فروع متاحة —</option>';
+        branchSel.disabled = true;
+        if(deptSel){ deptSel.innerHTML = '<option value="">— غير متاح —</option>'; deptSel.disabled = true; }
+        if(nameSel){ nameSel.innerHTML = '<option value="">— غير متاح —</option>'; nameSel.disabled = true; }
+
         var alertDiv = document.createElement('div');
         alertDiv.id = 'mgr-no-teachers-alert';
         alertDiv.style.cssText = 'margin-top:10px;padding:12px 16px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.25);border-radius:10px;color:#b45309;font-size:0.8rem;display:flex;align-items:center;gap:10px;';
         alertDiv.innerHTML = '<i class="fas fa-exclamation-triangle" style="font-size:1.1rem;flex-shrink:0;"></i><span>لم يتم تعيين أقسام أو فروع لك بعد، أو لا يوجد معلمين في نطاقك. تواصل مع مدير النظام لربط حسابك بالأقسام.</span>';
-        if(sel && sel.parentNode) sel.parentNode.appendChild(alertDiv);
+        if(branchSel && branchSel.parentNode && branchSel.parentNode.parentNode) {
+          branchSel.parentNode.parentNode.parentNode.appendChild(alertDiv);
+        }
         return;
       }
 
-      sel.disabled=false;
-      var o='<option value="">— اختر المعلم —</option>';
-      for(var i=0;i<teachers.length;i++){
-        var t=teachers[i];
-        _teacherMap[t.id]={name:t.name,spec:t.dept||t.spec||'',school:t.school,branchId:t.branchId||''};
-        var deptBranchInfo = (t.dept ? t.dept : '') + (t.school ? ' - ' + t.school : '');
-        o+='<option value="'+esc(t.id)+'">'+esc(t.name) + (deptBranchInfo ? ' (' + esc(deptBranchInfo) + ')' : '') + '</option>';
+      branchSel.disabled = false;
+      var branchesMap = {};
+
+      for(var i = 0; i < _managerTeachersList.length; i++){
+        var t = _managerTeachersList[i];
+        _teacherMap[t.id] = {
+          id: t.id,
+          name: t.name,
+          spec: t.dept || t.spec || '',
+          school: t.school || '',
+          branchId: t.branchId || '',
+          deptId: t.deptId || '',
+          position: t.spec || ''
+        };
+
+        var bId = (t.branchId || 'main').toString().trim();
+        var bName = t.school || ('فرع ' + bId);
+        if(!branchesMap[bId]){
+          branchesMap[bId] = bName;
+          _branchesList.push({ id: bId, name: bName });
+          _branchDeptsMap[bId] = {};
+        }
+
+        var dId = (t.deptId || 'general').toString().trim();
+        var dName = t.dept || dId;
+        if(!_branchDeptsMap[bId][dId]){
+          _branchDeptsMap[bId][dId] = dName;
+        }
       }
-      sel.innerHTML=o;
+
+      var bo = '<option value="">— اختر الفرع —</option>';
+      for(var bi = 0; bi < _branchesList.length; bi++){
+        bo += '<option value="' + esc(_branchesList[bi].id) + '">' + esc(_branchesList[bi].name) + '</option>';
+      }
+      branchSel.innerHTML = bo;
+
+      if(_branchesList.length === 1){
+        branchSel.value = _branchesList[0].id;
+        onBranchChange();
+      }
     })
     .withFailureHandler(function(e){
-      var sel=document.getElementById('basic-name');
-      if(sel) sel.innerHTML='<option value="">خطأ في التحميل: '+esc(e.message||e)+'</option>';
+      var branchSel = document.getElementById('basic-branch');
+      if(branchSel) branchSel.innerHTML = '<option value="">خطأ في التحميل: ' + esc(e.message || e) + '</option>';
     })
     .getTeachersForCurrentManager();
 }
@@ -2850,9 +2902,18 @@ function toggleCat(idx){
 }
 
 function validateCtx(){
-  var g=v('basic-grade'),sem=v('basic-semester'),name=v('basic-name'),spec=v('basic-spec'),school=v('basic-school'),cls=v('basic-class'),clsSpec=v('basic-class-spec');
-  var qs=document.getElementById('q-section'); if(!qs) return;
-  if(g&&sem&&name&&spec&&school&&cls&&clsSpec){
+  var g       = v('basic-grade'),
+      sem     = v('basic-semester'),
+      name    = v('basic-name'),
+      spec    = v('basic-spec'),
+      school  = v('basic-school'),
+      cls     = v('basic-class'),
+      clsSpec = v('basic-class-spec'),
+      branch  = v('basic-branch'),
+      dept    = v('basic-dept');
+
+  var qs = document.getElementById('q-section'); if(!qs) return;
+  if(branch&&dept&&g&&sem&&name&&spec&&school&&cls&&clsSpec){
     if(qs.style.display==='none'){
       var ratingQs=globalQuestionsCached.filter(function(q){return parseFloat(q.weight)>0;});
       var cats={};
@@ -2915,6 +2976,8 @@ function validateCtx(){
         }
       }
 
+      var teacherDisplayName = (_teacherMap[name] && _teacherMap[name].name) ? _teacherMap[name].name : name;
+
       var ctxHtml=
         '<div class="q-card" style="border-right:3px solid var(--sta-red);">'
           +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">'
@@ -2922,9 +2985,9 @@ function validateCtx(){
             +'<span style="font-size:0.85rem;font-weight:700;color:var(--text-primary);">بيانات التقييم</span>'
           +'</div>'
           +'<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">'
-            +'<div style="background:rgba(211,47,47,0.04);padding:10px 14px;border-radius:10px;"><div style="font-size:0.65rem;color:var(--text-muted);font-weight:700;margin-bottom:2px;">المعلم</div><div style="font-size:0.82rem;font-weight:600;color:var(--text-primary);">'+esc(name)+'</div></div>'
-            +'<div style="background:rgba(211,47,47,0.04);padding:10px 14px;border-radius:10px;"><div style="font-size:0.65rem;color:var(--text-muted);font-weight:700;margin-bottom:2px;">التخصص</div><div style="font-size:0.82rem;font-weight:600;color:var(--text-primary);">'+esc(spec)+'</div></div>'
-            +'<div style="background:rgba(211,47,47,0.04);padding:10px 14px;border-radius:10px;"><div style="font-size:0.65rem;color:var(--text-muted);font-weight:700;margin-bottom:2px;">المدرسة</div><div style="font-size:0.82rem;font-weight:600;color:var(--text-primary);">'+esc(school)+'</div></div>'
+            +'<div style="background:rgba(211,47,47,0.04);padding:10px 14px;border-radius:10px;"><div style="font-size:0.65rem;color:var(--text-muted);font-weight:700;margin-bottom:2px;">الفرع</div><div style="font-size:0.82rem;font-weight:600;color:var(--text-primary);">'+esc(school)+'</div></div>'
+            +'<div style="background:rgba(211,47,47,0.04);padding:10px 14px;border-radius:10px;"><div style="font-size:0.65rem;color:var(--text-muted);font-weight:700;margin-bottom:2px;">القسم</div><div style="font-size:0.82rem;font-weight:600;color:var(--text-primary);">'+esc(spec)+'</div></div>'
+            +'<div style="background:rgba(211,47,47,0.04);padding:10px 14px;border-radius:10px;"><div style="font-size:0.65rem;color:var(--text-muted);font-weight:700;margin-bottom:2px;">المعلم</div><div style="font-size:0.82rem;font-weight:600;color:var(--text-primary);">'+esc(teacherDisplayName)+'</div></div>'
             +'<div style="background:rgba(211,47,47,0.04);padding:10px 14px;border-radius:10px;"><div style="font-size:0.65rem;color:var(--text-muted);font-weight:700;margin-bottom:2px;">الصف</div><div style="font-size:0.82rem;font-weight:600;color:var(--text-primary);">'+esc(g)+'</div></div>'
             +'<div style="background:rgba(211,47,47,0.04);padding:10px 14px;border-radius:10px;"><div style="font-size:0.65rem;color:var(--text-muted);font-weight:700;margin-bottom:2px;">الفصل</div><div style="font-size:0.82rem;font-weight:600;color:var(--text-primary);">'+esc(cls)+'</div></div>'
             +'<div style="background:rgba(211,47,47,0.04);padding:10px 14px;border-radius:10px;"><div style="font-size:0.65rem;color:var(--text-muted);font-weight:700;margin-bottom:2px;">تخصص الفصل</div><div style="font-size:0.82rem;font-weight:600;color:var(--text-primary);">'+esc(clsSpec)+'</div></div>'
@@ -2956,23 +3019,130 @@ function restoreStarRating(qid,val){
 function v(id){var el=document.getElementById(id);return el?el.value:'';}
 
 /* ── Cascading dropdowns ─────────────────────────────────────────────── */
-var _teacherMap={}, _deptMap={};
+var _teacherMap={}, _deptMap={}, _managerTeachersList=[], _branchesList=[], _branchDeptsMap={};
+
+function onBranchChange(){
+  var branchId=v('basic-branch');
+  var deptSel=document.getElementById('basic-dept');
+  var nameSel=document.getElementById('basic-name');
+  var schoolEl=document.getElementById('basic-school');
+  var specEl=document.getElementById('basic-spec');
+
+  if(specEl) specEl.value='';
+  if(schoolEl){
+    var bObj=_branchesList.find(function(b){return b.id===branchId;});
+    schoolEl.value=bObj?bObj.name:'';
+  }
+
+  if(deptSel){
+    if(!branchId){
+      deptSel.innerHTML='<option value="">— اختر الفرع أولاً —</option>';
+      deptSel.disabled=true;
+    } else {
+      var deptsObj=_branchDeptsMap[branchId]||{};
+      var deptKeys=Object.keys(deptsObj);
+      if(deptKeys.length===0){
+        deptSel.innerHTML='<option value="">— لا توجد أقسام متاحة لهذا الفرع —</option>';
+        deptSel.disabled=true;
+      } else {
+        var dHtml='<option value="">— اختر القسم —</option>';
+        for(var di=0;di<deptKeys.length;di++){
+          dHtml+='<option value="'+esc(deptKeys[di])+'">'+esc(deptsObj[deptKeys[di]])+'</option>';
+        }
+        deptSel.innerHTML=dHtml;
+        deptSel.disabled=false;
+
+        if(deptKeys.length===1){
+          deptSel.value=deptKeys[0];
+          onDeptChange();
+          return;
+        }
+      }
+    }
+  }
+
+  if(nameSel){
+    nameSel.innerHTML='<option value="">— اختر القسم أولاً —</option>';
+    nameSel.disabled=true;
+  }
+
+  resetClassFieldsAndQuestions();
+}
+
+function onDeptChange(){
+  var branchId=v('basic-branch');
+  var deptId=v('basic-dept');
+  var nameSel=document.getElementById('basic-name');
+  var specEl=document.getElementById('basic-spec');
+
+  if(specEl){
+    var deptsObj=_branchDeptsMap[branchId]||{};
+    specEl.value=deptsObj[deptId]||'';
+  }
+
+  if(nameSel){
+    if(!deptId){
+      nameSel.innerHTML='<option value="">— اختر القسم أولاً —</option>';
+      nameSel.disabled=true;
+    } else {
+      var filteredTeachers=_managerTeachersList.filter(function(t){
+        return ((t.branchId||'main').toString().trim()===branchId) &&
+               ((t.deptId||'general').toString().trim()===deptId);
+      });
+
+      if(!filteredTeachers.length){
+        nameSel.innerHTML='<option value="">— لا يوجد معلمين في هذا القسم —</option>';
+        nameSel.disabled=true;
+      } else {
+        var nHtml='<option value="">— اختر المعلم —</option>';
+        for(var ti=0;ti<filteredTeachers.length;ti++){
+          var t=filteredTeachers[ti];
+          var extra=t.spec?(' ('+esc(t.spec)+')'):'';
+          nHtml+='<option value="'+esc(t.id)+'">'+esc(t.name)+extra+'</option>';
+        }
+        nameSel.innerHTML=nHtml;
+        nameSel.disabled=false;
+
+        if(filteredTeachers.length===1){
+          nameSel.value=filteredTeachers[0].id;
+          onTeacherChange();
+          return;
+        }
+      }
+    }
+  }
+
+  resetClassFieldsAndQuestions();
+}
 
 function onTeacherChange(){
-  var sel=document.getElementById('basic-name');
-  var tid=sel.value;
+  var tid=v('basic-name');
   var t=_teacherMap[tid];
+  var specEl=document.getElementById('basic-spec');
+  var schoolEl=document.getElementById('basic-school');
+
   if(t){
-    document.getElementById('basic-spec').value=t.spec||'';
-    document.getElementById('basic-school').value=t.school||'';
+    if(specEl) specEl.value=t.dept||t.spec||'';
+    if(schoolEl) schoolEl.value=t.school||'';
   } else {
-    document.getElementById('basic-spec').value='';
-    document.getElementById('basic-school').value='';
+    if(specEl) specEl.value='';
+    if(schoolEl) schoolEl.value='';
   }
-  document.getElementById('basic-grade').value='';
-  document.getElementById('basic-class-spec').innerHTML='<option value="">— اختر التخصص —</option>';
-  document.getElementById('basic-class').innerHTML='<option value="">— اختر الفصل —</option>';
-  document.getElementById('q-section').style.display='none';
+
+  resetClassFieldsAndQuestions();
+}
+
+function resetClassFieldsAndQuestions(){
+  var gr=document.getElementById('basic-grade');
+  var cs=document.getElementById('basic-class-spec');
+  var cl=document.getElementById('basic-class');
+  var qs=document.getElementById('q-section');
+
+  if(gr) gr.value='';
+  if(cs) cs.innerHTML='<option value="">— اختر التخصص —</option>';
+  if(cl) cl.innerHTML='<option value="">— اختر الفصل —</option>';
+  if(qs) qs.style.display='none';
+
   validateCtx();
 }
 
@@ -2986,7 +3156,7 @@ function onGradeChange(){
     return;
   }
   var tid=v('basic-name');
-  var branchId=(_teacherMap[tid]&&_teacherMap[tid].branchId)||'';
+  var branchId=v('basic-branch')||((_teacherMap[tid]&&_teacherMap[tid].branchId)||'');
   google.script.run
     .withSuccessHandler(function(specs){
       var s=document.getElementById('basic-class-spec');
@@ -3010,7 +3180,7 @@ function onClassSpecChange(){
     return;
   }
   var tid=v('basic-name');
-  var branchId=(_teacherMap[tid]&&_teacherMap[tid].branchId)||'';
+  var branchId=v('basic-branch')||((_teacherMap[tid]&&_teacherMap[tid].branchId)||'');
   google.script.run
     .withSuccessHandler(function(classes){
       var s=document.getElementById('basic-class');
@@ -3048,7 +3218,7 @@ function rateStar(el,qid,val){
 function submitEval(e){
   e.preventDefault();
   var tid=v('basic-name');
-  if(!tid){showModal('مطلوب','يرجى الانتظار حتى يتم تحميل البيانات.',true);return;}
+  if(!tid){showModal('مطلوب','يرجى اختيار الفرع والقسم والمعلم أولاً.',true);return;}
   var ratingQs=globalQuestionsCached.filter(function(q){return parseFloat(q.weight)>0;});
   var firstMissing=null;
   var ratings=[];

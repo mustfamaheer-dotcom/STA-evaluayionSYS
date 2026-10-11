@@ -106,22 +106,47 @@ function getTeachers() {
   var depts = getActiveRows('Departments');
   var branches = getActiveRows('Branches');
   var deptMap = {};
+  var deptNameToId = {};
   for (var di = 0; di < depts.length; di++) {
-    deptMap[(depts[di]['department_id'] || '').toString().trim()] = (depts[di]['department_name'] || '').toString();
+    var dId = (depts[di]['department_id'] || '').toString().trim();
+    var dName = (depts[di]['department_name'] || '').toString().trim();
+    deptMap[dId] = dName;
+    if (dName) deptNameToId[dName.toLowerCase()] = dId;
   }
   var branchMap = {};
+  var branchNameToId = {};
   for (var bi = 0; bi < branches.length; bi++) {
-    branchMap[(branches[bi]['branch_id'] || '').toString().trim()] = (branches[bi]['branch_name'] || '').toString();
+    var bId = (branches[bi]['branch_id'] || '').toString().trim();
+    var bName = (branches[bi]['branch_name'] || '').toString().trim();
+    branchMap[bId] = bName;
+    if (bName) branchNameToId[bName.toLowerCase()] = bId;
   }
   return rows.map(function(r) {
     var did = (r['department_id'] || '').toString().trim();
     var bid = (r['branch_id'] || '').toString().trim();
+    var schoolBranch = (r['school_branch'] || '').toString().trim();
+
+    // Fallback: resolve branchId from school_branch if branch_id is blank
+    if (!bid && schoolBranch && branchNameToId[schoolBranch.toLowerCase()]) {
+      bid = branchNameToId[schoolBranch.toLowerCase()];
+    }
+    // Fallback: resolve deptId from dept name if department_id is a name instead of ID
+    if (!deptMap[did] && did && deptNameToId[did.toLowerCase()]) {
+      did = deptNameToId[did.toLowerCase()];
+    }
+
+    var bName = branchMap[bid] || schoolBranch || (bid ? 'فرع ' + bid : 'الفرع الرئيسي');
+    var dName = deptMap[did] || did || 'القسم العام';
+
+    if (!bid) bid = bName;
+    if (!did) did = dName;
+
     return {
       id:       (r['employee_id']    || '').toString(),
       name:     (r['name']            || '').toString(),
       spec:     (r['position']       || '').toString(),
-      school:   branchMap[bid] || (r['school_branch'] || '').toString(),
-      dept:     deptMap[did] || did,
+      school:   bName,
+      dept:     dName,
       branchId: bid,
       deptId:   did
     };
@@ -803,8 +828,9 @@ function getTeachersForCurrentManager() {
 
   return allTeachers.filter(function(t) {
     var empInfo = empMap[t.id];
-    if (!empInfo) return false;
-    var key = empInfo.deptId + '|' + empInfo.branchId;
+    var did = (empInfo && empInfo.deptId) || t.deptId;
+    var bid = (empInfo && empInfo.branchId) || t.branchId;
+    var key = did + '|' + bid;
     return !!allowedKeys[key];
   });
 }

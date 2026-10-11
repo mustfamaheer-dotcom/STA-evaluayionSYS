@@ -1,8 +1,6 @@
 # STA Instructor Evaluation System — Complete Technical & Deployment Manual
 **Elsewedy Technical Academy (STA) — أكاديمية السويدي التقنية**
-
 ---
-
 ## 1. Executive Summary & Architecture
 
 The **STA Instructor Evaluation System** is an enterprise-grade academic observation, survey, and analytics platform built for the Elsewedy Technical Academy. It enables academic supervisors and department managers to perform classroom evaluations of instructors, aggregates performance across 6 core academic domains, enforces strict departmental scoping per school branch, and provides interactive analytics with exportable PDF reports.

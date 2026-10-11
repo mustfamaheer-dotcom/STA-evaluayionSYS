@@ -116,6 +116,16 @@ function submitEvaluation(payload) {
 
       var teacherDeptId = (teacherRecord['department_id'] || '').toString().trim();
       var teacherBranchId = (teacherRecord['branch_id'] || '').toString().trim();
+      if (!teacherBranchId && teacherRecord['school_branch']) {
+        var branchRows = AppUtils.sheetToObjects('Branches');
+        var sb = (teacherRecord['school_branch'] || '').toString().trim().toLowerCase();
+        for (var bi = 0; bi < branchRows.length; bi++) {
+          if ((branchRows[bi]['branch_name'] || '').toString().trim().toLowerCase() === sb) {
+            teacherBranchId = (branchRows[bi]['branch_id'] || '').toString().trim();
+            break;
+          }
+        }
+      }
 
       // Find current manager ID from Managers sheet
       var mgrRows = AppUtils.sheetToObjects('Managers');
