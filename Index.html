@@ -477,10 +477,21 @@ function boot(profile){
   currentUserProfile=profile;
   var displayName=(profile.name||profile.email||'?');
   var initials=displayName.substring(0,2).toUpperCase();
-  document.getElementById('user-avatar').textContent=initials;
-  document.getElementById('user-display').textContent=displayName;
-  document.getElementById('role-badge').textContent=profile.role||'—';
-  showModal('مرحباً بك، '+esc(displayName),'مرحباً بك في نظام تقييم المعلمين - أكاديمية السويدي التقنية.');
+  var isAnonymous = (!profile.email || profile.email === 'anonymous@unknown.com');
+  if (isAnonymous) {
+    document.getElementById('user-avatar').textContent = '⚠️';
+    document.getElementById('user-display').innerHTML = '<span style="color:#D32F2F;font-weight:700;">حساب غير معروف</span>';
+    document.getElementById('role-badge').textContent = 'غير مسجل';
+    showModal(
+      '⚠️ تنبيه: لم يتم التعرف على حسابك',
+      'لم يتمكن النظام من التعرف على بريدك الإلكتروني المؤسسي.<br><br>يرجى التأكد من تسجيل الدخول بحساب أكاديمية السويدي <b>(@sta.edu.eg)</b> في المتصفح ثم إعادة تحميل الصفحة.'
+    );
+  } else {
+    document.getElementById('user-avatar').textContent = initials;
+    document.getElementById('user-display').textContent = displayName;
+    document.getElementById('role-badge').textContent = profile.role || '—';
+    showModal('مرحباً بك، ' + esc(displayName), 'مرحباً بك في نظام تقييم المعلمين - أكاديمية السويدي التقنية.');
+  }
   var p=profile.permissions||[], h='';
   if(p.includes('canViewDashboard')){
     h+=navItem('dashboard','fa-chart-bar','لوحة التحكم');
