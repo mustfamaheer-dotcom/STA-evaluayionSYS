@@ -4,15 +4,17 @@
 
 var _profileCache = {};
 
-function getUserProfile() {
-  var email = '';
-  try { email = Session.getActiveUser().getEmail(); } catch (e) {}
+function getUserProfile(optEmail) {
+  var email = (optEmail || '').toString().trim().toLowerCase();
+  if (!email) {
+    try { email = Session.getActiveUser().getEmail(); } catch (e) {}
+  }
   if (!email) email = 'anonymous@unknown.com';
   return _buildProfile(email);
 }
 
-function getUserRolesAndPermissions() {
-  return getUserProfile();
+function getUserRolesAndPermissions(optEmail) {
+  return getUserProfile(optEmail);
 }
 
 function _buildProfile(email) {

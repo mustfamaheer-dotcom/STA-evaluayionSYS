@@ -328,12 +328,17 @@
       </div>
     </nav>
     <div class="sidebar-footer">
-      <div class="user-pill">
-        <div class="user-avatar" id="user-avatar">?</div>
-        <div>
-          <div class="user-info-name" id="user-display">جاري التحميل...</div>
-          <div class="user-info-role" id="role-badge">—</div>
+      <div class="user-pill" style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+        <div style="display:flex;align-items:center;gap:10px;min-width:0;flex:1;">
+          <div class="user-avatar" id="user-avatar">?</div>
+          <div style="min-width:0;flex:1;overflow:hidden;">
+            <div class="user-info-name" id="user-display" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">جاري التحميل...</div>
+            <div class="user-info-role" id="role-badge">—</div>
+          </div>
         </div>
+        <button onclick="logoutUser()" title="تبديل الحساب / تسجيل خروج" style="background:none;border:none;color:#94a3b8;cursor:pointer;padding:6px;font-size:0.9rem;border-radius:6px;transition:all 0.2s;" onmouseover="this.style.color='var(--sta-red)';this.style.background='rgba(211,47,47,0.08)'" onmouseout="this.style.color='#94a3b8';this.style.background='none'">
+          <i class="fas fa-sign-out-alt"></i>
+        </button>
       </div>
     </div>
   </div>
@@ -467,31 +472,102 @@ window.addEventListener('DOMContentLoaded',function(){
     closeConfirm();
   });
 
+  var savedEmail = '';
+  try {
+    var urlParams = new URLSearchParams(window.location.search);
+    savedEmail = urlParams.get('email') || urlParams.get('user') || '';
+    if (!savedEmail) {
+      savedEmail = localStorage.getItem('sta_user_email') || '';
+    }
+  } catch(e) {}
+
   google.script.run
     .withSuccessHandler(boot)
     .withFailureHandler(function(e){ setContent('<div style="background:#FFEBEE;color:#C62828;padding:16px;border-radius:10px;font-size:0.85rem;">خطأ في الاتصال بالخادم: '+esc(e.message||e)+'</div>'); })
-    .getUserRolesAndPermissions();
+    .getUserRolesAndPermissions(savedEmail);
 });
+
+function logoutUser() {
+  try { localStorage.removeItem('sta_user_email'); } catch(e) {}
+  showLoginModal();
+}
+
+function showLoginModal() {
+  var modal = document.getElementById('login-modal');
+  if (!modal) {
+    var m = document.createElement('div');
+    m.id = 'login-modal';
+    m.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,0.7);backdrop-filter:blur(8px);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;';
+    m.innerHTML = 
+      '<div style="background:#fff;border-radius:20px;padding:34px 28px;max-width:420px;width:100%;box-shadow:0 24px 48px rgba(0,0,0,0.18);text-align:center;position:relative;">'
+      + '<div style="width:62px;height:62px;border-radius:50%;background:rgba(211,47,47,0.08);color:var(--sta-red);display:flex;align-items:center;justify-content:center;font-size:1.7rem;margin:0 auto 16px;"><i class="fas fa-user-shield"></i></div>'
+      + '<h3 style="font-size:1.25rem;font-weight:800;color:var(--text-primary);margin-bottom:6px;">أكاديمية السويدي التقنية</h3>'
+      + '<p style="font-size:0.84rem;color:var(--text-secondary);margin-bottom:20px;">تسجيل الدخول إلى نظام تقييم المعلمين</p>'
+      + '<div id="login-err" style="display:none;background:#FFEBEE;color:#C62828;padding:10px 14px;border-radius:10px;font-size:0.82rem;margin-bottom:14px;text-align:right;"></div>'
+      + '<input type="email" id="login-email-input" class="form-input" placeholder="البريد الإلكتروني (مثل: mustfa.maheer@gmail.com)" style="width:100%;margin-bottom:14px;padding:12px 14px;border:1px solid #CBD5E1;border-radius:10px;font-size:0.9rem;" dir="ltr">'
+      + '<button id="login-submit-btn" style="width:100%;background:var(--sta-red);color:#fff;border:none;padding:13px;border-radius:10px;font-weight:700;font-size:0.95rem;cursor:pointer;transition:all 0.2s;"><i class="fas fa-sign-in-alt" style="margin-left:8px;"></i>تسجيل الدخول</button>'
+      + '</div>';
+    document.body.appendChild(m);
+    modal = m;
+
+    document.getElementById('login-submit-btn').onclick = function() {
+      var email = (document.getElementById('login-email-input').value || '').trim();
+      if (!email) return;
+      var btn = document.getElementById('login-submit-btn');
+      var err = document.getElementById('login-err');
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري التحقق...';
+      err.style.display = 'none';
+
+      google.script.run
+        .withSuccessHandler(function(p) {
+          if (p && p.email && p.email !== 'anonymous@unknown.com') {
+            try { localStorage.setItem('sta_user_email', p.email); } catch(e) {}
+            modal.style.display = 'none';
+            boot(p);
+          } else {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-sign-in-alt" style="margin-left:8px;"></i>تسجيل الدخول';
+            err.textContent = 'البريد الإلكتروني غير مسجل في النظام كمدير أو معلم.';
+            err.style.display = 'block';
+          }
+        })
+        .withFailureHandler(function(e) {
+          btn.disabled = false;
+          btn.innerHTML = '<i class="fas fa-sign-in-alt" style="margin-left:8px;"></i>تسجيل الدخول';
+          err.textContent = 'خطأ في الاتصال: ' + (e.message || e);
+          err.style.display = 'block';
+        })
+        .getUserRolesAndPermissions(email);
+    };
+
+    document.getElementById('login-email-input').addEventListener('keydown', function(ev) {
+      if (ev.key === 'Enter') {
+        document.getElementById('login-submit-btn').click();
+      }
+    });
+  }
+  modal.style.display = 'flex';
+  setTimeout(function() {
+    var inp = document.getElementById('login-email-input');
+    if (inp) { inp.focus(); }
+  }, 100);
+}
 
 function boot(profile){
   currentUserProfile=profile;
-  var displayName=(profile.name||profile.email||'?');
-  var initials=displayName.substring(0,2).toUpperCase();
   var isAnonymous = (!profile.email || profile.email === 'anonymous@unknown.com');
   if (isAnonymous) {
-    document.getElementById('user-avatar').textContent = '⚠️';
-    document.getElementById('user-display').innerHTML = '<span style="color:#D32F2F;font-weight:700;">حساب غير معروف</span>';
-    document.getElementById('role-badge').textContent = 'غير مسجل';
-    showModal(
-      '⚠️ تنبيه: لم يتم التعرف على حسابك',
-      'لم يتمكن النظام من التعرف على بريدك الإلكتروني المؤسسي.<br><br>يرجى التأكد من تسجيل الدخول بحساب أكاديمية السويدي <b>(@sta.edu.eg)</b> في المتصفح ثم إعادة تحميل الصفحة.'
-    );
-  } else {
-    document.getElementById('user-avatar').textContent = initials;
-    document.getElementById('user-display').textContent = displayName;
-    document.getElementById('role-badge').textContent = profile.role || '—';
-    showModal('مرحباً بك، ' + esc(displayName), 'مرحباً بك في نظام تقييم المعلمين - أكاديمية السويدي التقنية.');
+    showLoginModal();
+    return;
   }
+
+  var displayName=(profile.name||profile.email||'?');
+  var initials=displayName.substring(0,2).toUpperCase();
+  document.getElementById('user-avatar').textContent = initials;
+  document.getElementById('user-display').textContent = displayName;
+  document.getElementById('role-badge').textContent = profile.role || '—';
+  showModal('مرحباً بك، ' + esc(displayName), 'مرحباً بك في نظام تقييم المعلمين - أكاديمية السويدي التقنية.');
   var p=profile.permissions||[], h='';
   if(p.includes('canViewDashboard')){
     h+=navItem('dashboard','fa-chart-bar','لوحة التحكم');
@@ -669,7 +745,7 @@ function loadModule(name){
         }
       })
       .withFailureHandler(function(e){setContent(errBox('خطأ في تحميل التقييمات: '+esc(e.message||e)));})
-      .getMyEvaluations();
+      .getMyEvaluations(currentUserProfile ? currentUserProfile.email : '');
   /* ── EVALUATE ── */
   } else if(name==='evaluate'){
     if(!currentUserProfile.permissions.includes('canEvaluate')){setContent(errBox('غير مصرح: لا تملك صلاحية إنشاء ملاحظات صفية.'));return;}
@@ -3977,7 +4053,7 @@ function loadEvalDetailsPage(){
       renderEvalDetailsPageInstructor(r&&r.evals?r.evals:r);
     }).withFailureHandler(function(e){
       setContent(errBox('خطأ في التحميل: '+esc(e.message||e)));
-    }).getMyEvaluations();
+    }).getMyEvaluations(currentUserProfile ? currentUserProfile.email : '');
   } else {
     google.script.run.withSuccessHandler(function(instructors){
       renderEvalDetailsPageManager(instructors);

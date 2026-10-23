@@ -644,9 +644,11 @@ function getDashboardStats(filters) {
 }
 
 // ── Get instructor's own evaluations ──────────────────────────────
-function getMyEvaluations() {
-  var callerEmail = '';
-  try { callerEmail = Session.getActiveUser().getEmail(); } catch (e) {}
+function getMyEvaluations(optEmail) {
+  var callerEmail = (optEmail || '').toString().trim().toLowerCase();
+  if (!callerEmail) {
+    try { callerEmail = Session.getActiveUser().getEmail(); } catch (e) {}
+  }
   if (!callerEmail) return [];
 
   var empRows = AppUtils.sheetToObjects('Employees');
