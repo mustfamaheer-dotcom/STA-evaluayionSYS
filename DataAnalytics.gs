@@ -1,4 +1,4 @@
-﻿// ============================================================
+// ============================================================
 //  DATA ANALYTICS.GS  –  Isolated Historical Data Analytics
 //  Reads ONLY from historical source spreadsheet.
 //  Does NOT touch Evaluations / EvaluationAnswers / Dashboard.
@@ -189,45 +189,10 @@ function _readHistoricalRows() {
   return [];
 }
 
-// ── ONE-TIME IMPORT: finds eval-sum Google Sheet in Drive and creates HistoricalData sheet ──
-// NO Advanced Drive service needed — just DriveApp
+// ── ONE-TIME IMPORT: Historical Data reference ──
 function importHistoricalFromDrive() {
-  // 1) Try find a Google Sheet already converted (preferred)
-  var file = null;
-  var ss = null;
-
-  // Search for Google Sheets with eval-sum in title
-  try {
-    var sheets = DriveApp.getFilesByType(MimeType.GOOGLE_SHEETS);
-    while (sheets.hasNext()) {
-      var f = sheets.next();
-      var name = f.getName();
-      if (name.indexOf('eval-sum') !== -1 || name.indexOf('eval_sum') !== -1) {
-        file = f;
-        ss = SpreadsheetApp.openById(f.getId());
-        break;
-      }
-    }
-  } catch(e) {}
-
-  // 2) Fallback: exact name search
-  if (!ss) {
-    var it = DriveApp.getFilesByName('eval-sum.xlsx');
-    if (it.hasNext()) {
-      file = it.next();
-      // xlsx cannot be opened directly — ask user to convert manually
-      return 'Found "'+file.getName()+'" as xlsx (not a Google Sheet).\n\nFIX IN 10 SECONDS:\n1. In Drive, right-click "eval-sum.xlsx" → Open with → Google Sheets\n2. Wait for it to open (creates a new Google Sheet)\n3. Run importHistoricalFromDrive again — it will auto-detect the converted sheet.';
-    }
-    it = DriveApp.getFilesByName('eval-sum');
-    if (it.hasNext()) {
-      file = it.next();
-      try { ss = SpreadsheetApp.openById(file.getId()); } catch(e) {}
-    }
-  }
-
-  if (!ss) {
-    return 'Not found.\n\nDO THIS:\n1. Drive → New → File upload → E:\\WORK\\FreeLance\\STAManagerSurvey\\eval-sum.xlsx\n2. After upload, right-click → Open with → Google Sheets (creates Google Sheet version)\n3. Run importHistoricalFromDrive again.';
-  }
+  return 'Historical data is already linked directly via HISTORICAL_SOURCE_ID.';
+}
 
   var sh = ss.getSheetByName('Sheet1') || ss.getSheets()[0];
   var data = sh.getDataRange().getValues();
