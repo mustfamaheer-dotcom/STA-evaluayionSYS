@@ -194,30 +194,6 @@ function importHistoricalFromDrive() {
   return 'Historical data is already linked directly via HISTORICAL_SOURCE_ID.';
 }
 
-  var sh = ss.getSheetByName('Sheet1') || ss.getSheets()[0];
-  var data = sh.getDataRange().getValues();
-  if (data.length < 2) return 'Source sheet empty: '+file.getName();
-
-  // Create/update HistoricalData in TARGET DB (isolated)
-  var db = AppUtils.getDB();
-  var target = db.getSheetByName('HistoricalData');
-  if (!target) target = db.insertSheet('HistoricalData');
-  target.clearContents();
-  var headers = ['TID','Name','Department','School','CA','TP','AE','PS','ET','LR','Total'];
-  var srcHeaders = data[0].map(function(h){return (h||'').toString().trim();});
-  var hasTID = srcHeaders.indexOf('TID') !== -1;
-  if (hasTID) headers = srcHeaders.slice(0,11);
-  target.getRange(1,1,1,headers.length).setValues([headers]);
-  var hr = target.getRange(1,1,1,headers.length);
-  hr.setBackground('#1e293b'); hr.setFontColor('#FFFFFF'); hr.setFontWeight('bold'); hr.setFontSize(10);
-  target.setFrozenRows(1);
-  var rows = data.slice(1).filter(function(r){ return r[0]!=='' && r[0]!==null && r[0]!==undefined; });
-  if (rows.length) target.getRange(2,1,rows.length, Math.min(rows[0].length, headers.length)).setValues(rows.map(function(r){return r.slice(0,headers.length);}));
-  target.autoResizeColumns(1, headers.length);
-  AppUtils.invalidate('HistoricalData');
-  return 'Imported '+rows.length+' rows from "'+file.getName()+'" to HistoricalData (isolated). Refresh Data Analytics page now — Dashboard untouched.';
-}
-
 // Manual fallback: paste a Google Sheet ID directly
 function importHistoricalFromSheetId(sheetId) {
   if (!sheetId) return 'Usage: importHistoricalFromSheetId("YOUR_GOOGLE_SHEET_ID")';
