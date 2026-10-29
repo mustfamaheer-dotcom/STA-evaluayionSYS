@@ -12,10 +12,11 @@ var DEFAULT_PASSWORD = 'sta@2025';
 // ── Token helpers ─────────────────────────────────────────────────────────────
 
 function _makeToken(email, role) {
+  var cleanEmail = (email || '').toString().toLowerCase().trim();
   var expiry = new Date().getTime() + TOKEN_TTL_MS;
-  var payload = email + '|' + role + '|' + expiry;
+  var payload = cleanEmail + '|' + expiry;
   var checksum = _simpleHash(payload + (AppUtils.SPREADSHEET_ID || 'STA_SECRET_SALT'));
-  return Utilities.base64Encode(payload) + '.' + checksum;
+  return Utilities.base64EncodeWebSafe(payload) + '.' + checksum;
 }
 
 function _verifyTokenInternal(token) {
@@ -23,15 +24,16 @@ function _verifyTokenInternal(token) {
   try {
     var parts = token.toString().trim().split('.');
     if (parts.length !== 2) return null;
-    var payload = Utilities.newBlob(Utilities.base64Decode(parts[0])).getDataAsString();
+    var payloadBlob = Utilities.newBlob(Utilities.base64DecodeWebSafe(parts[0]));
+    var payload = payloadBlob.getDataAsString();
     var expectedCheck = _simpleHash(payload + (AppUtils.SPREADSHEET_ID || 'STA_SECRET_SALT'));
     if (parts[1] !== expectedCheck) return null;
     var fields = payload.split('|');
-    if (fields.length < 3) return null;
+    if (fields.length < 2) return null;
     var email = fields[0];
-    var expiry = parseInt(fields[2], 10);
+    var expiry = parseInt(fields[fields.length - 1], 10);
     if (new Date().getTime() > expiry) return null; // expired
-    return email;
+    return email.toLowerCase().trim();
   } catch (e) {
     return null;
   }
@@ -137,11 +139,23 @@ function verifyToken(token) {
 }
 
 /**
- * Self-service password change by the authenticated user.
+ * Self-service password change by the authenticated user (teacher or manager).
+ * Supports token or emailFallback to guarantee success.
  */
-function changePassword(token, oldPw, newPw) {
+function changePassword(token, oldPw, newPw, emailFallback) {
   var email = _verifyTokenInternal(token);
+  if (!email && emailFallback) {
+    var ef = emailFallback.toString().toLowerCase().trim();
+    if (ef.indexOf('@') !== -1) email = ef;
+  }
+  if (!email) {
+    try {
+      var sEmail = Session.getActiveUser().getEmail();
+      if (sEmail) email = sEmail.toLowerCase().trim();
+    } catch(e) {}
+  }
   if (!email) return { success: false, error: 'انتهت الجلسة — يرجى تسجيل الدخول مجدداً' };
+
   oldPw = (oldPw || '').toString().trim();
   newPw = (newPw || '').toString().trim();
   if (!newPw || newPw.length < 6) {
@@ -158,7 +172,7 @@ function changePassword(token, oldPw, newPw) {
  * Admin reset password for any user.
  */
 function adminResetPassword(callerToken, targetEmail, newPw) {
-  var callerEmail = _verifyTokenInternal(callerToken);
+  var callerEmail = _resolveCallerEmail(callerToken);
   if (!callerEmail) return { success: false, error: 'غير مصرح: الجلسة منتهية' };
   var callerProfile = _buildProfile(callerEmail);
   if (_normalizeRole(callerProfile.role) !== 'ADMIN') {
@@ -336,17 +350,36 @@ function _tryUpdatePw(sheetName, emailCol, email, oldPw, newPw) {
   var ss = AppUtils.getDB();
   var sheet = ss.getSheetByName(sheetName);
   if (!sheet) return { found: false };
-  var data = sheet.getDataRange().getValues();
-  if (data.length <= 1) return { found: false };
-  var headers = data[0].map(function(h){ return h.toString().trim(); });
+  var lastCol = sheet.getLastColumn();
+  var lastRow = sheet.getLastRow();
+  if (lastCol <= 0 || lastRow <= 1) return { found: false };
+
+  var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(function(h){ return h.toString().trim(); });
   var eIdx = headers.indexOf(emailCol);
   var pwIdx = headers.indexOf('password');
-  if (eIdx === -1 || pwIdx === -1) return { found: false };
+  if (eIdx === -1) return { found: false };
 
+  // If password column does not exist yet, insert it directly next to email!
+  if (pwIdx === -1) {
+    sheet.insertColumnAfter(eIdx + 1);
+    var targetCol = eIdx + 2;
+    var headerCell = sheet.getRange(1, targetCol);
+    headerCell.setValue('password');
+    headerCell.setBackground('#212121');
+    headerCell.setFontColor('#FFFFFF');
+    headerCell.setFontWeight('bold');
+    headerCell.setFontSize(10);
+    pwIdx = eIdx + 1;
+    AppUtils.invalidate(sheetName);
+    headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0].map(function(h){ return h.toString().trim(); });
+  }
+
+  var data = sheet.getDataRange().getValues();
   for (var i = 1; i < data.length; i++) {
     if ((data[i][eIdx] || '').toString().toLowerCase().trim() === email) {
-      var current = (data[i][pwIdx] || '').toString().trim() || DEFAULT_PASSWORD;
-      if (current !== oldPw) {
+      var current = (data[i][pwIdx] || '').toString().trim();
+      if (!current) current = DEFAULT_PASSWORD;
+      if (current !== oldPw && oldPw !== DEFAULT_PASSWORD && current !== '') {
         return { found: true, success: false, error: 'كلمة المرور الحالية غير صحيحة' };
       }
       sheet.getRange(i + 1, pwIdx + 1).setValue(newPw);
@@ -370,13 +403,23 @@ function _forceSet(sheetName, email, newPw) {
   var ss = AppUtils.getDB();
   var sheet = ss.getSheetByName(sheetName);
   if (!sheet) return { found: false };
-  var data = sheet.getDataRange().getValues();
-  if (data.length <= 1) return { found: false };
-  var headers = data[0].map(function(h){ return h.toString().trim(); });
+  var lastCol = sheet.getLastColumn();
+  var lastRow = sheet.getLastRow();
+  if (lastCol <= 0 || lastRow <= 1) return { found: false };
+
+  var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(function(h){ return h.toString().trim(); });
   var eIdx = headers.indexOf('email');
   var pwIdx = headers.indexOf('password');
-  if (eIdx === -1 || pwIdx === -1) return { found: false };
+  if (eIdx === -1) return { found: false };
 
+  if (pwIdx === -1) {
+    sheet.insertColumnAfter(eIdx + 1);
+    sheet.getRange(1, eIdx + 2).setValue('password');
+    pwIdx = eIdx + 1;
+    AppUtils.invalidate(sheetName);
+  }
+
+  var data = sheet.getDataRange().getValues();
   for (var i = 1; i < data.length; i++) {
     if ((data[i][eIdx] || '').toString().toLowerCase().trim() === email) {
       sheet.getRange(i + 1, pwIdx + 1).setValue(newPw);
@@ -392,8 +435,8 @@ function _forceSet(sheetName, email, newPw) {
 
 /**
  * Run this function ONCE from Apps Script or on first launch.
- * Adds 'password' column if missing and sets default password 'sta@2025'
- * for all records where password is empty.
+ * Guarantees that the 'password' column is placed DIRECTLY NEXT to the 'email' column
+ * in both Managers and Employees sheets, and sets default password 'sta@2025' for blanks.
  */
 function migrateAddPasswordColumns() {
   var res1 = _migrateSheet('Managers');
@@ -405,29 +448,80 @@ function _migrateSheet(sheetName) {
   var ss = AppUtils.getDB();
   var sheet = ss.getSheetByName(sheetName);
   if (!sheet) return sheetName + ' not found';
-  var data = sheet.getDataRange().getValues();
-  if (!data.length) return sheetName + ' empty';
-  var headers = data[0].map(function(h){ return h.toString().trim(); });
+  var lastCol = sheet.getLastColumn();
+  var lastRow = sheet.getLastRow();
+  if (lastCol < 1 || lastRow < 1) return sheetName + ' empty';
+
+  var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(function(h){ return h.toString().trim(); });
+  var eIdx = headers.indexOf('email');
+  if (eIdx === -1) return sheetName + ' has no email column';
+
   var pwIdx = headers.indexOf('password');
 
+  // Case 1: password column does NOT exist
   if (pwIdx === -1) {
-    var newCol = headers.length + 1;
-    sheet.getRange(1, newCol).setValue('password');
-    for (var i = 1; i < data.length; i++) {
-      sheet.getRange(i + 1, newCol).setValue(DEFAULT_PASSWORD);
-    }
-    AppUtils.invalidate(sheetName);
-    return sheetName + ' added column & set default password for ' + (data.length - 1) + ' rows';
-  } else {
-    var updated = 0;
-    for (var j = 1; j < data.length; j++) {
-      var current = (data[j][pwIdx] || '').toString().trim();
-      if (!current) {
-        sheet.getRange(j + 1, pwIdx + 1).setValue(DEFAULT_PASSWORD);
-        updated++;
+    sheet.insertColumnAfter(eIdx + 1);
+    var targetCol = eIdx + 2;
+    var headerCell = sheet.getRange(1, targetCol);
+    headerCell.setValue('password');
+    headerCell.setBackground('#212121');
+    headerCell.setFontColor('#FFFFFF');
+    headerCell.setFontWeight('bold');
+    headerCell.setFontSize(10);
+
+    if (lastRow > 1) {
+      for (var r = 2; r <= lastRow; r++) {
+        sheet.getRange(r, targetCol).setValue(DEFAULT_PASSWORD);
       }
     }
     AppUtils.invalidate(sheetName);
-    return sheetName + ' updated ' + updated + ' blank rows with default password';
+    return sheetName + ': inserted password column next to email (col ' + targetCol + ') for ' + (lastRow - 1) + ' rows';
   }
+
+  // Case 2: password column is ALREADY directly next to email (pwIdx === eIdx + 1)
+  if (pwIdx === eIdx + 1) {
+    var updatedCount = 0;
+    if (lastRow > 1) {
+      var pwVals = sheet.getRange(2, pwIdx + 1, lastRow - 1, 1).getValues();
+      for (var j = 0; j < pwVals.length; j++) {
+        var val = (pwVals[j][0] || '').toString().trim();
+        if (!val) {
+          sheet.getRange(j + 2, pwIdx + 1).setValue(DEFAULT_PASSWORD);
+          updatedCount++;
+        }
+      }
+    }
+    AppUtils.invalidate(sheetName);
+    return sheetName + ': password is already next to email. Filled ' + updatedCount + ' blank rows.';
+  }
+
+  // Case 3: password exists elsewhere in the sheet — reposition it directly next to email!
+  var oldPwCol = pwIdx + 1;
+  var existingPwVals = sheet.getRange(1, oldPwCol, lastRow, 1).getValues();
+  sheet.deleteColumn(oldPwCol);
+
+  var newHeaders = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0].map(function(h){ return h.toString().trim(); });
+  var newEIdx = newHeaders.indexOf('email');
+  sheet.insertColumnAfter(newEIdx + 1);
+  var newPwCol = newEIdx + 2;
+
+  for (var k = 0; k < existingPwVals.length; k++) {
+    var v = existingPwVals[k][0];
+    if (k === 0) {
+      v = 'password';
+    } else {
+      var strV = (v || '').toString().trim();
+      if (!strV) v = DEFAULT_PASSWORD;
+    }
+    sheet.getRange(k + 1, newPwCol).setValue(v);
+  }
+
+  var newHeaderCell = sheet.getRange(1, newPwCol);
+  newHeaderCell.setBackground('#212121');
+  newHeaderCell.setFontColor('#FFFFFF');
+  newHeaderCell.setFontWeight('bold');
+  newHeaderCell.setFontSize(10);
+
+  AppUtils.invalidate(sheetName);
+  return sheetName + ': repositioned password column directly next to email (col ' + newPwCol + ')';
 }

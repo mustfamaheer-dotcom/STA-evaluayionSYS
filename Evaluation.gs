@@ -46,8 +46,8 @@ function setupSheetHeaders() {
   ensureHeaders('Branches',            ['branch_id', 'branch_name', 'status', 'created_at']);
   ensureHeaders('BranchDepartments',   ['branch_dept_id', 'branch_id', 'department_id', 'status', 'created_at']);
   ensureHeaders('ManagerDepartments',  ['mgr_dept_id', 'manager_id', 'department_id', 'branch_id', 'status', 'created_at']);
-  ensureHeaders('Employees',          ['employee_id', 'name', 'email', 'department_id', 'branch_id', 'school_branch', 'position', 'status', 'created_at']);
-  ensureHeaders('Managers',           ['manager_id', 'name', 'email', 'role', 'status', 'created_at']);
+  ensureHeaders('Employees',          ['employee_id', 'name', 'email', 'password', 'department_id', 'branch_id', 'school_branch', 'position', 'status', 'created_at']);
+  ensureHeaders('Managers',           ['manager_id', 'name', 'email', 'password', 'role', 'status', 'created_at']);
 
   var clsSheet = ss.getSheetByName('Classes');
   if (clsSheet) {

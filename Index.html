@@ -303,6 +303,13 @@
     .card-header i { transform: scaleX(-1); }
     .stat-icon i { transform: scaleX(-1); }
     .glass-form-header i { transform: scaleX(-1); }
+
+    /* ── Login Split Screen Responsive ── */
+    @media (max-width: 900px) {
+      #login-overlay { flex-direction: column !important; overflow-y: auto !important; }
+      .login-info-side { padding: 32px 20px !important; flex: none !important; width: 100% !important; min-height: auto !important; }
+      .login-form-side { padding: 32px 20px !important; flex: none !important; width: 100% !important; }
+    }
   </style>
 <body>
 <div style="display:flex;height:100vh;overflow:hidden;">
@@ -414,61 +421,136 @@
 </div>
 
 <!-- ════════════════════════════════════════════
-     STA LOGIN OVERLAY (Email & Password)
+     STA FULL-PAGE MODERN LOGIN PORTAL
 ════════════════════════════════════════════ -->
-<div id="login-overlay" style="position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:#f8fafc;background-image:radial-gradient(ellipse 80% 60% at 10% 0%, rgba(211,47,47,0.08) 0%, transparent 60%), radial-gradient(ellipse 60% 50% at 90% 100%, rgba(59,130,246,0.08) 0%, transparent 60%);">
-  <div style="width:100%;max-width:420px;margin:20px;">
-    <div class="glass-modal" style="padding:0;overflow:hidden;border:1px solid rgba(15,23,42,0.12);box-shadow:0 20px 40px rgba(15,23,42,0.12);">
-      
-      <!-- Brand Header -->
-      <div style="background:linear-gradient(135deg,#D32F2F 0%,#B71C1C 100%);padding:32px 28px;text-align:center;position:relative;overflow:hidden;">
-        <div style="position:absolute;top:-20px;left:-20px;width:100px;height:100px;border-radius:50%;background:rgba(255,255,255,0.08);"></div>
-        <div style="position:absolute;bottom:-30px;right:20px;width:90px;height:90px;border-radius:50%;background:rgba(255,255,255,0.06);"></div>
-        <div style="font-size:2.2rem;font-weight:900;color:#fff;letter-spacing:3px;line-height:1;">STA</div>
-        <div style="color:rgba(255,255,255,0.92);font-size:0.88rem;font-weight:700;margin-top:8px;">أكاديمية السويدي التقنية</div>
-        <div style="color:rgba(255,255,255,0.75);font-size:0.72rem;margin-top:3px;letter-spacing:0.5px;">نظام التقييم والملاحظة الصفية للمعلمين</div>
+<div id="login-overlay" style="position:fixed;inset:0;z-index:9999;width:100vw;height:100vh;margin:0;padding:0;background:#0d1117;display:flex;overflow:hidden;direction:rtl;font-family:'Cairo',sans-serif;">
+
+  <!-- ── RIGHT SIDE: SYSTEM INFO & BRANDING (RTL Right) ── -->
+  <div class="login-info-side" style="flex:1.2;background:linear-gradient(145deg, #161b22 0%, #0d1117 100%);position:relative;display:flex;flex-direction:column;justify-content:space-between;padding:48px 56px;color:#fff;overflow:hidden;border-left:1px solid rgba(255,255,255,0.08);">
+    
+    <!-- Ambient glowing backdrop decorations -->
+    <div style="position:absolute;top:-80px;right:-80px;width:380px;height:380px;border-radius:50%;background:radial-gradient(circle, rgba(211,47,47,0.22) 0%, transparent 70%);pointer-events:none;"></div>
+    <div style="position:absolute;bottom:-100px;left:-60px;width:340px;height:340px;border-radius:50%;background:radial-gradient(circle, rgba(37,99,235,0.15) 0%, transparent 70%);pointer-events:none;"></div>
+    
+    <!-- Top Brand Header -->
+    <div style="position:relative;z-index:2;display:flex;align-items:center;gap:16px;">
+      <div style="width:52px;height:52px;border-radius:14px;background:linear-gradient(135deg, #D32F2F 0%, #B71C1C 100%);display:flex;align-items:center;justify-content:center;box-shadow:0 8px 24px rgba(211,47,47,0.4);border:1px solid rgba(255,255,255,0.2);">
+        <span style="font-size:1.4rem;font-weight:900;color:#fff;letter-spacing:1.5px;">STA</span>
       </div>
+      <div>
+        <div style="font-size:1.15rem;font-weight:800;color:#fff;letter-spacing:0.3px;">أكاديمية السويدي التقنية</div>
+        <div style="font-size:0.75rem;color:rgba(255,255,255,0.6);letter-spacing:0.5px;font-weight:500;">Elsewedy Technical Academy</div>
+      </div>
+    </div>
 
-      <!-- Login Form Card -->
-      <div style="padding:32px 28px;">
-        <div style="font-size:1rem;font-weight:700;color:var(--text-primary);margin-bottom:6px;text-align:center;">تسجيل الدخول للنظام</div>
-        <div style="font-size:0.75rem;color:var(--text-muted);text-align:center;margin-bottom:20px;">أدخل البريد الإلكتروني وكلمة المرور الخاصة بحسابك</div>
+    <!-- Center Hero Showcase -->
+    <div style="position:relative;z-index:2;margin:auto 0;max-width:540px;padding:24px 0;">
+      <div style="display:inline-flex;align-items:center;gap:8px;padding:6px 14px;border-radius:30px;background:rgba(211,47,47,0.15);border:1px solid rgba(211,47,47,0.3);color:#ff6b6b;font-size:0.75rem;font-weight:700;margin-bottom:18px;">
+        <i class="fas fa-shield-alt"></i><span>منظومة الملاحظة والتقييم الأكاديمي</span>
+      </div>
+      <h1 style="font-size:2rem;font-weight:800;color:#fff;line-height:1.35;margin-bottom:14px;">
+        نظام تقييم وملاحظة <span style="background:linear-gradient(135deg, #ff5252, #ff7b7b);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">الأداء الصفي للمعلمين</span>
+      </h1>
+      <p style="font-size:0.88rem;color:rgba(255,255,255,0.72);line-height:1.75;margin-bottom:30px;">
+        منظومة رقمية شاملة لمتابعة جودة التعليم والتدريب الفني، تمكن المشرفين والمديرين من إجراء ملاحظات صفية دقيقة ومتابعة مؤشرات أداء الكادر الأكاديمي بشفافية واحترافية.
+      </p>
 
-        <div id="login-error" style="display:none;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.25);border-radius:10px;padding:12px 14px;font-size:0.8rem;color:#dc2626;margin-bottom:18px;text-align:center;line-height:1.5;"></div>
-
-        <form id="login-form" onsubmit="handleLoginSubmit(event)" style="display:flex;flex-direction:column;gap:18px;">
-          <div>
-            <label class="form-label" style="font-size:0.78rem;">البريد الإلكتروني</label>
-            <div style="position:relative;">
-              <input id="login-email" type="email" class="form-input" placeholder="name@sta.edu.eg" required autocomplete="username" dir="ltr" style="padding-right:38px;">
-              <i class="fas fa-envelope" style="position:absolute;right:14px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:0.85rem;"></i>
-            </div>
+      <!-- Highlights list -->
+      <div style="display:flex;flex-direction:column;gap:12px;">
+        <div style="display:flex;align-items:flex-start;gap:14px;padding:12px 16px;border-radius:12px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);backdrop-filter:blur(10px);">
+          <div style="width:36px;height:36px;border-radius:10px;background:rgba(211,47,47,0.2);display:flex;align-items:center;justify-content:center;color:#ff5252;flex-shrink:0;">
+            <i class="fas fa-clipboard-check" style="font-size:0.95rem;"></i>
           </div>
-
           <div>
-            <label class="form-label" style="font-size:0.78rem;">كلمة المرور</label>
-            <div style="position:relative;">
-              <input id="login-password" type="password" class="form-input" placeholder="••••••••" required autocomplete="current-password" dir="ltr" style="padding-right:38px;padding-left:40px;">
-              <i class="fas fa-lock" style="position:absolute;right:14px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:0.85rem;"></i>
-              <button type="button" onclick="togglePasswordVisibility()" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text-muted);padding:4px;outline:none;">
-                <i id="login-pw-eye" class="fas fa-eye"></i>
-              </button>
-            </div>
+            <div style="font-size:0.85rem;font-weight:700;color:#fff;">ملاحظة صفية وفق 6 مجالات أكاديمية</div>
+            <div style="font-size:0.75rem;color:rgba(255,255,255,0.55);margin-top:2px;">تقييم معياري يشمل الإدارة الصفية، استراتيجيات التدريس، تكنولوجيا التعليم، والتقويم.</div>
           </div>
+        </div>
 
-          <button type="submit" id="login-submit-btn" class="btn-primary" style="margin-top:6px;height:44px;display:flex;align-items:center;justify-content:center;gap:10px;">
-            <span id="login-btn-label">تسجيل الدخول</span>
-            <i id="login-btn-spinner" class="fas fa-spinner fa-spin" style="display:none;"></i>
-          </button>
-        </form>
+        <div style="display:flex;align-items:flex-start;gap:14px;padding:12px 16px;border-radius:12px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);backdrop-filter:blur(10px);">
+          <div style="width:36px;height:36px;border-radius:10px;background:rgba(59,130,246,0.2);display:flex;align-items:center;justify-content:center;color:#60a5fa;flex-shrink:0;">
+            <i class="fas fa-chart-line" style="font-size:0.95rem;"></i>
+          </div>
+          <div>
+            <div style="font-size:0.85rem;font-weight:700;color:#fff;">لوحات تحليلات تفاعلية وتقارير PDF</div>
+            <div style="font-size:0.75rem;color:rgba(255,255,255,0.55);margin-top:2px;">تصفية ديناميكية حسب الشهر ومقارنة الفروع والأقسام وتصدير تقارير فورية.</div>
+          </div>
+        </div>
 
-        <div style="text-align:center;margin-top:22px;padding-top:16px;border-top:1px solid var(--glass-border);font-size:0.72rem;color:var(--text-muted);line-height:1.5;">
-          كلمة المرور الافتراضية الأولية: <strong style="color:var(--text-primary);dir:ltr;">sta@2025</strong><br>
-          في حال نسيان كلمة المرور، يرجى التواصل مع مسؤول النظام (Admin)
+        <div style="display:flex;align-items:flex-start;gap:14px;padding:12px 16px;border-radius:12px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);backdrop-filter:blur(10px);">
+          <div style="width:36px;height:36px;border-radius:10px;background:rgba(16,185,129,0.2);display:flex;align-items:center;justify-content:center;color:#34d399;flex-shrink:0;">
+            <i class="fas fa-user-shield" style="font-size:0.95rem;"></i>
+          </div>
+          <div>
+            <div style="font-size:0.85rem;font-weight:700;color:#fff;">صلاحيات دقيقة ونطاق إشرافي محكم</div>
+            <div style="font-size:0.75rem;color:rgba(255,255,255,0.55);margin-top:2px;">توزيع للمديرين والمعلمين بحسب الأقسام والفروع مع حماية خصوصية التقييمات.</div>
+          </div>
         </div>
       </div>
     </div>
+
+    <!-- Bottom Footer -->
+    <div style="position:relative;z-index:2;display:flex;align-items:center;justify-content:space-between;border-top:1px solid rgba(255,255,255,0.08);padding-top:18px;font-size:0.72rem;color:rgba(255,255,255,0.5);">
+      <div>© 2025 أكاديمية السويدي التقنية — جميع الحقوق محفوظة</div>
+      <div style="display:flex;align-items:center;gap:6px;">
+        <span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#10b981;box-shadow:0 0 8px rgba(16,185,129,0.5);"></span>
+        <span>النظام متصل ومؤمن</span>
+      </div>
+    </div>
   </div>
+
+  <!-- ── LEFT SIDE: LOGIN FORM (RTL Left) ── -->
+  <div class="login-form-side" style="flex:1;background:#ffffff;display:flex;align-items:center;justify-content:center;padding:48px;position:relative;overflow-y:auto;">
+    <div style="width:100%;max-width:400px;margin:auto;">
+      
+      <!-- Form Header -->
+      <div style="margin-bottom:30px;">
+        <div style="display:inline-block;padding:4px 12px;border-radius:6px;background:rgba(211,47,47,0.08);color:var(--sta-red);font-size:0.75rem;font-weight:700;margin-bottom:10px;">
+          بوابة الدخول
+        </div>
+        <h2 style="font-size:1.65rem;font-weight:800;color:#0f172a;margin-bottom:6px;">تسجيل الدخول</h2>
+        <p style="font-size:0.82rem;color:#64748b;">أدخل بيانات حسابك للمتابعة إلى لوحة التحكم والتقييم</p>
+      </div>
+
+      <!-- Error box -->
+      <div id="login-error" style="display:none;background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:12px 14px;font-size:0.82rem;color:#dc2626;margin-bottom:20px;line-height:1.5;"></div>
+
+      <!-- Login Form -->
+      <form id="login-form" onsubmit="handleLoginSubmit(event)" style="display:flex;flex-direction:column;gap:18px;">
+        <div>
+          <label class="form-label" style="font-size:0.82rem;font-weight:700;color:#334155;margin-bottom:6px;">البريد الإلكتروني</label>
+          <div style="position:relative;">
+            <input id="login-email" type="email" class="form-input" placeholder="name@sta.edu.eg" required autocomplete="username" dir="ltr" style="padding-right:42px;height:46px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;font-size:0.88rem;">
+            <i class="fas fa-envelope" style="position:absolute;right:15px;top:50%;transform:translateY(-50%);color:#94a3b8;font-size:0.95rem;"></i>
+          </div>
+        </div>
+
+        <div>
+          <label class="form-label" style="font-size:0.82rem;font-weight:700;color:#334155;margin-bottom:6px;">كلمة المرور</label>
+          <div style="position:relative;">
+            <input id="login-password" type="password" class="form-input" placeholder="••••••••" required autocomplete="current-password" dir="ltr" style="padding-right:42px;padding-left:44px;height:46px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;font-size:0.88rem;">
+            <i class="fas fa-lock" style="position:absolute;right:15px;top:50%;transform:translateY(-50%);color:#94a3b8;font-size:0.95rem;"></i>
+            <button type="button" onclick="togglePasswordVisibility()" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#94a3b8;padding:6px;outline:none;">
+              <i id="login-pw-eye" class="fas fa-eye"></i>
+            </button>
+          </div>
+        </div>
+
+        <button type="submit" id="login-submit-btn" class="btn-primary" style="height:48px;font-size:0.92rem;font-weight:700;margin-top:6px;display:flex;align-items:center;justify-content:center;gap:10px;border-radius:10px;box-shadow:0 6px 20px rgba(211,47,47,0.35);">
+          <span id="login-btn-label">تسجيل الدخول</span>
+          <i id="login-btn-spinner" class="fas fa-spinner fa-spin" style="display:none;"></i>
+        </button>
+      </form>
+
+      <!-- Note / Assistance without mentioning sta@2025 -->
+      <div style="margin-top:28px;padding-top:20px;border-top:1px solid #f1f5f9;text-align:center;font-size:0.75rem;color:#64748b;line-height:1.6;">
+        <i class="fas fa-info-circle" style="color:var(--sta-red);margin-left:4px;"></i>
+        في حال تعذر الدخول أو نسيان كلمة المرور، يرجى التواصل مع مسؤول النظام (Admin)
+      </div>
+
+    </div>
+  </div>
+
 </div>
 
 <script>
@@ -3782,12 +3864,17 @@ function submitChangePassword(e){
   if(newPw !== confirm){
     if(msgEl){
       msgEl.style.display = 'block';
-      msgEl.style.background = 'rgba(239,68,68,0.1)';
+      msgEl.style.background = '#fef2f2';
+      msgEl.style.border = '1px solid #fecaca';
       msgEl.style.color = '#dc2626';
       msgEl.textContent = 'كلمة المرور الجديدة غير متطابقة مع خانة التأكيد';
     }
     return;
   }
+
+  var tokenToUse = currentToken || '';
+  try { if(!tokenToUse) tokenToUse = localStorage.getItem('STA_AUTH_TOKEN') || ''; } catch(ex){}
+  var emailToUse = (currentUserProfile && currentUserProfile.email) ? currentUserProfile.email : '';
 
   btnState('change-pw-btn', true, 'جاري التحديث...');
   google.script.run
@@ -3796,11 +3883,18 @@ function submitChangePassword(e){
       if(res && res.success){
         showModal('تم بنجاح', 'تم تحديث كلمة المرور الخاصة بك بنجاح!');
         document.getElementById('frm-change-pw').reset();
-        if(msgEl) msgEl.style.display = 'none';
+        if(msgEl){
+          msgEl.style.display = 'block';
+          msgEl.style.background = '#f0fdf4';
+          msgEl.style.border = '1px solid #bbf7d0';
+          msgEl.style.color = '#15803d';
+          msgEl.textContent = 'تم تحديث كلمة المرور بنجاح!';
+        }
       } else {
         if(msgEl){
           msgEl.style.display = 'block';
-          msgEl.style.background = 'rgba(239,68,68,0.1)';
+          msgEl.style.background = '#fef2f2';
+          msgEl.style.border = '1px solid #fecaca';
           msgEl.style.color = '#dc2626';
           msgEl.textContent = (res && res.error) || 'تعذر تحديث كلمة المرور';
         }
@@ -3810,12 +3904,13 @@ function submitChangePassword(e){
       btnState('change-pw-btn', false, 'تحديث كلمة المرور');
       if(msgEl){
         msgEl.style.display = 'block';
-        msgEl.style.background = 'rgba(239,68,68,0.1)';
+        msgEl.style.background = '#fef2f2';
+        msgEl.style.border = '1px solid #fecaca';
         msgEl.style.color = '#dc2626';
         msgEl.textContent = 'خطأ: ' + (err.message || err);
       }
     })
-    .changePassword(currentToken, oldPw, newPw);
+    .changePassword(tokenToUse, oldPw, newPw, emailToUse);
 }
 
 /* ── MY EVALUATIONS RENDERER (Instructor self-monitor) ──────────────────── */
