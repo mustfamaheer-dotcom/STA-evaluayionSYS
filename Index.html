@@ -669,6 +669,24 @@ function closeConfirm(){
 
 var currentToken = null;
 
+function getAuthToken(){
+  if(typeof currentToken === 'string' && currentToken.trim()){
+    return currentToken.trim();
+  }
+  try {
+    var saved = localStorage.getItem('STA_AUTH_TOKEN');
+    if(saved && saved.trim()) return saved.trim();
+  } catch(e){}
+  return '';
+}
+
+function getAuthEmail(){
+  if(window.currentUserProfile && window.currentUserProfile.email){
+    return window.currentUserProfile.email.trim();
+  }
+  return '';
+}
+
 function togglePasswordVisibility(fieldId, iconId){
   var inp = document.getElementById(fieldId || 'login-password');
   var eye = document.getElementById(iconId || 'login-pw-eye');
@@ -983,19 +1001,20 @@ function loadModule(name){
         +'<div style="text-align:center;padding:40px;"><i class="fas fa-spinner fa-spin" style="color:var(--sta-red);font-size:1.5rem;"></i><p style="color:#9E9E9E;margin-top:12px;font-size:0.85rem;">جاري تحميل تقييماتك...</p></div>'
       +'</div>'
     );
+    var tok = getAuthToken();
     google.script.run
       .withSuccessHandler(function(r){
         if(r&&r.teacherId&&r.evals){
           google.script.run
             .withSuccessHandler(function(agg){renderMyEvaluations(agg);})
             .withFailureHandler(function(e){setContent(errBox('خطأ: '+esc(e.message||e)));})
-            .getInstructorAggregatedData(r.teacherId);
+            .getInstructorAggregatedData(r.teacherId, tok);
         } else {
           renderMyEvaluations(null);
         }
       })
       .withFailureHandler(function(e){setContent(errBox('خطأ في تحميل التقييمات: '+esc(e.message||e)));})
-      .getMyEvaluations(currentUserProfile ? currentUserProfile.email : '');
+      .getMyEvaluations(tok || (currentUserProfile ? currentUserProfile.email : ''));
   /* ── EVALUATE ── */
   } else if(name==='evaluate'){
     if(!currentUserProfile.permissions.includes('canEvaluate')){setContent(errBox('غير مصرح: لا تملك صلاحية إنشاء ملاحظات صفية.'));return;}
@@ -2852,7 +2871,14 @@ function onCatInsightEmpChange(){
     return;
   }
   el.innerHTML='<div style="text-align:center;padding:30px;color:#BDBDBD;"><i class="fas fa-spinner fa-spin" style="font-size:1.2rem;display:block;margin-bottom:8px;"></i>جاري تحميل البيانات...</div>';
-  var filterPayload = { employeeId: empId };
+  var tok = getAuthToken();
+  var em = getAuthEmail();
+  var filterPayload = {
+    employeeId: empId,
+    authToken: tok,
+    token: tok,
+    userEmail: em
+  };
   if(window._currentDashboardMonth && window._currentDashboardMonth !== 'all'){
     filterPayload.month = window._currentDashboardMonth;
   }
@@ -2871,7 +2897,7 @@ function onCatInsightEmpChange(){
     .withFailureHandler(function(){
       el.innerHTML='<div style="text-align:center;padding:30px;color:#C62828;font-size:0.82rem;">خطأ في تحميل البيانات</div>';
     })
-    .getDashboardStats(filterPayload);
+    .getDashboardStats(filterPayload, tok);
 }
 
 function renderCatInsightChart(categories, overallAvg, empId, totalEvals, bestCat, worstCat){
@@ -3626,6 +3652,8 @@ function submitEval(e){
     return;
   }
   btnState('eval-btn',true,'جاري الإرسال...');
+  var tok = getAuthToken();
+  var em = getAuthEmail();
   google.script.run
     .withSuccessHandler(function(res){
       btnState('eval-btn',false,'إرسال التقييم');
@@ -3643,8 +3671,11 @@ function submitEval(e){
       classSpec:      v('basic-class-spec'),
       semester:       v('basic-semester'),
       notes:          v('eval-notes'),
-      ratings:        ratings
-    });
+      ratings:        ratings,
+      authToken:      tok,
+      token:          tok,
+      userEmail:      em
+    }, tok);
 }
 
 function submitDept(e){
@@ -3659,7 +3690,7 @@ function submitDept(e){
       else showModal('فشل',(res&&res.error)||'خطأ.',true);
     })
     .withFailureHandler(function(err){btnState('dept-btn',false,'حفظ القسم');showModal('خطأ',err.message||err,true);})
-    .addNewDepartmentRow({name:name});
+    .addNewDepartmentRow({name:name}, getAuthToken());
 }
 
 var _classesList = [];
@@ -3826,7 +3857,7 @@ function removeClassRow(classId, className){
       .withFailureHandler(function(err){
         showModal('خطأ في الخادم', 'خطأ: ' + esc(err.message || err), true);
       })
-      .deleteClass(classId);
+      .deleteClass(classId, getAuthToken());
   });
 }
 
@@ -3861,7 +3892,7 @@ function submitClass(e){
         btnState('cls-btn', false, 'حفظ الفصل');
         showModal('خطأ', err.message || err, true);
       })
-      .updateClass(editId, { name: name, department_id: dept, grade: grd });
+      .updateClass(editId, { name: name, department_id: dept, grade: grd }, getAuthToken());
   } else {
     google.script.run
       .withSuccessHandler(function(res){
@@ -3881,7 +3912,7 @@ function submitClass(e){
         btnState('cls-btn', false, 'حفظ الفصل');
         showModal('خطأ', err.message || err, true);
       })
-      .addNewClassRow({ name: name, department_id: dept, grade: grd });
+      .addNewClassRow({ name: name, department_id: dept, grade: grd }, getAuthToken());
   }
 }
 
@@ -3895,7 +3926,7 @@ function submitQuestion(e){
       else showModal('فشل',(res&&res.error)||'خطأ.',true);
     })
     .withFailureHandler(function(err){btnState('q-btn',false,'حفظ السؤال');showModal('خطأ',err.message||err,true);})
-    .addNewQuestionRow({category:v('q-cat'),text:document.getElementById('q-text').value.trim(),weight:parseFloat(v('q-weight'))});
+    .addNewQuestionRow({category:v('q-cat'),text:document.getElementById('q-text').value.trim(),weight:parseFloat(v('q-weight'))}, getAuthToken());
 }
 
 function submitInstructor(e){
@@ -3908,7 +3939,7 @@ function submitInstructor(e){
       else showModal('فشل',(res&&res.error)||'خطأ.',true);
     })
     .withFailureHandler(function(err){btnState('ins-btn',false,'تسجيل المعلم');showModal('خطأ',err.message||err,true);})
-    .addNewInstructorRow({name:document.getElementById('ins-name').value.trim(),email:document.getElementById('ins-email').value.trim(),department:v('ins-dept'),branch:v('ins-branch')?document.getElementById('ins-branch').options[document.getElementById('ins-branch').selectedIndex].text:'',branchId:v('ins-branch'),position:document.getElementById('ins-pos').value.trim()});
+    .addNewInstructorRow({name:document.getElementById('ins-name').value.trim(),email:document.getElementById('ins-email').value.trim(),department:v('ins-dept'),branch:v('ins-branch')?document.getElementById('ins-branch').options[document.getElementById('ins-branch').selectedIndex].text:'',branchId:v('ins-branch'),position:document.getElementById('ins-pos').value.trim()}, getAuthToken());
 }
 
 function submitManager(e){
@@ -3921,7 +3952,7 @@ function submitManager(e){
       else showModal('فشل',(res&&res.error)||'خطأ.',true);
     })
     .withFailureHandler(function(err){btnState('mgr-btn',false,'منح الصلاحية');showModal('خطأ',err.message||err,true);})
-    .addNewManagerRow({name:document.getElementById('mgr-name').value.trim(),email:document.getElementById('mgr-email').value.trim(),role:v('mgr-role')}, currentToken);
+    .addNewManagerRow({name:document.getElementById('mgr-name').value.trim(),email:document.getElementById('mgr-email').value.trim(),role:v('mgr-role')}, getAuthToken());
 }
 
 function submitAdminResetPassword(e){
@@ -3943,7 +3974,7 @@ function submitAdminResetPassword(e){
       btnState('reset-pw-btn', false, 'إعادة تعيين كلمة المرور');
       showModal('خطأ', err.message || err, true);
     })
-    .adminResetPassword(currentToken, target, newPw);
+    .adminResetPassword(getAuthToken(), target, newPw);
 }
 
 function submitChangePassword(e){
@@ -3964,9 +3995,8 @@ function submitChangePassword(e){
     return;
   }
 
-  var tokenToUse = currentToken || '';
-  try { if(!tokenToUse) tokenToUse = localStorage.getItem('STA_AUTH_TOKEN') || ''; } catch(ex){}
-  var emailToUse = (currentUserProfile && currentUserProfile.email) ? currentUserProfile.email : '';
+  var tokenToUse = getAuthToken();
+  var emailToUse = getAuthEmail();
 
   btnState('change-pw-btn', true, 'جاري التحديث...');
   google.script.run
@@ -4136,7 +4166,13 @@ function loadDashboardData(monthKey){
   var indicator = document.getElementById('dashboard-loading-indicator');
   if(indicator) indicator.style.display = 'inline-flex';
 
-  var filterPayload = {};
+  var tok = getAuthToken();
+  var em = getAuthEmail();
+  var filterPayload = {
+    authToken: tok,
+    token: tok,
+    userEmail: em
+  };
   if(m && m !== 'all') filterPayload.month = m;
 
   google.script.run
@@ -4149,7 +4185,7 @@ function loadDashboardData(monthKey){
       var el=document.getElementById('recent-body');
       if(el) el.innerHTML=errBox('فشل في التحميل: '+esc(e.message||e));
     })
-    .getDashboardStats(filterPayload);
+    .getDashboardStats(filterPayload, tok);
 }
 
 function exportDashboardPDF(){
@@ -4415,18 +4451,19 @@ function exportDashboardPDF(){
 /* ── EVALUATION DETAILS PAGE ──────────────────────────── */
 function loadEvalDetailsPage(){
   var isInstructor = (currentUserProfile.role === 'مدرب' || currentUserProfile.role === 'معلم');
+  var tok = getAuthToken();
   if(isInstructor){
     google.script.run.withSuccessHandler(function(r){
       renderEvalDetailsPageInstructor(r&&r.evals?r.evals:r);
     }).withFailureHandler(function(e){
       setContent(errBox('خطأ في التحميل: '+esc(e.message||e)));
-    }).getMyEvaluations(currentUserProfile ? currentUserProfile.email : '');
+    }).getMyEvaluations(tok || (currentUserProfile ? currentUserProfile.email : ''));
   } else {
     google.script.run.withSuccessHandler(function(instructors){
       renderEvalDetailsPageManager(instructors);
     }).withFailureHandler(function(e){
       setContent(errBox('خطأ في التحميل: '+esc(e.message||e)));
-    }).getTeachers();
+    }).getTeachers(tok);
   }
 }
 
@@ -4480,7 +4517,7 @@ function filterEvalDetails(){
     renderEvalDetailsList(data);
   }).withFailureHandler(function(e){
     document.getElementById('eval-details-list').innerHTML=errBox('خطأ: '+esc(e.message||e));
-  }).getInstructorAggregatedData(instId);
+  }).getInstructorAggregatedData(instId, getAuthToken());
 }
 
 function renderEvalDetailsList(data){
@@ -4645,7 +4682,7 @@ function loadEvalDetailView(evalId){
     renderEvalDetailView(data);
   }).withFailureHandler(function(e){
     setContent(errBox('خطأ في التحميل: '+esc(e.message||e)));
-  }).getEvaluationFullDetails(evalId);
+  }).getEvaluationFullDetails(evalId, getAuthToken());
 }
 
 function renderEvalDetailView(data){

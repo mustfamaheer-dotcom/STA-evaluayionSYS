@@ -47,14 +47,49 @@ function _resolveCallerEmail(tokenOrEmail) {
     } catch(e) {}
     return null;
   }
+
+  // Handle object payload with embedded token or email
+  if (typeof tokenOrEmail === 'object') {
+    var candidate = tokenOrEmail.authToken || tokenOrEmail.token || tokenOrEmail.userEmail ||
+                    tokenOrEmail.email || tokenOrEmail.callerEmail || tokenOrEmail.managerEmail;
+    if (candidate) {
+      var resolved = _resolveCallerEmail(candidate);
+      if (resolved) return resolved;
+    }
+    for (var k in tokenOrEmail) {
+      if (Object.prototype.hasOwnProperty.call(tokenOrEmail, k)) {
+        var val = tokenOrEmail[k];
+        if (typeof val === 'string') {
+          val = val.trim();
+          if (val.indexOf('@') !== -1 || (val.indexOf('.') !== -1 && val.length > 20)) {
+            var res = _resolveCallerEmail(val);
+            if (res) return res;
+          }
+        }
+      }
+    }
+    return null;
+  }
+
   var str = tokenOrEmail.toString().trim();
+  if (!str) return null;
+
+  // If plain email string
+  if (str.indexOf('@') !== -1 && str.indexOf('|') === -1) {
+    return str.toLowerCase().trim();
+  }
+
+  // If signed token string
   if (str.indexOf('.') !== -1) {
     var fromToken = _verifyTokenInternal(str);
     if (fromToken) return fromToken.toLowerCase().trim();
   }
+
+  // Fallback for any email format
   if (str.indexOf('@') !== -1) {
     return str.toLowerCase().trim();
   }
+
   return null;
 }
 
@@ -264,7 +299,9 @@ function _normalizeRole(rawRole) {
 
   // Super Admin / System Admin
   if (upper === 'ADMIN' || upper === 'SUPER_ADMIN' || upper === 'ROLE_SUPER_ADMIN' ||
-      str === 'مدير النظام' || str.indexOf('مدير النظام') !== -1) {
+      upper.indexOf('ADMIN') !== -1 ||
+      str === 'مدير النظام' || str.indexOf('مدير النظام') !== -1 ||
+      str === 'مدير نظام' || str.indexOf('مدير نظام') !== -1) {
     return 'ADMIN';
   }
 
@@ -288,10 +325,10 @@ function _resolveRole(emailLower) {
     var foundManagerRole = null;
     for (var i = 0; i < rows.length; i++) {
       var r = rows[i];
-      var mEmail = (r['email'] || '').toString().toLowerCase().trim();
-      var mStatus = (r['status'] || 'Active').toString().trim().toLowerCase();
+      var mEmail = (r['email'] || r['Email'] || r['البريد'] || '').toString().toLowerCase().trim();
+      var mStatus = (r['status'] || r['Status'] || r['الحالة'] || 'Active').toString().trim().toLowerCase();
       if (mEmail === emailLower && (mStatus === 'active' || mStatus === '')) {
-        var rawRole = (r['role_id'] || r['role'] || '').toString().trim();
+        var rawRole = (r['role'] || r['role_id'] || r['Role'] || r['الدور'] || r['الصلاحية'] || '').toString().trim();
         var norm = _normalizeRole(rawRole);
         if (norm === 'ADMIN' || norm === 'MANAGER') {
           return norm;
@@ -305,8 +342,8 @@ function _resolveRole(emailLower) {
     var empRows = AppUtils.sheetToObjects('Employees');
     for (var j = 0; j < empRows.length; j++) {
       var er = empRows[j];
-      var eEmail = (er['email'] || '').toString().toLowerCase().trim();
-      var eStatus = (er['status'] || 'Active').toString().trim().toLowerCase();
+      var eEmail = (er['email'] || er['Email'] || er['البريد'] || '').toString().toLowerCase().trim();
+      var eStatus = (er['status'] || er['Status'] || er['الحالة'] || 'Active').toString().trim().toLowerCase();
       if (eEmail === emailLower && (eStatus === 'active' || eStatus === '')) {
         return 'Instructor';
       }
@@ -331,9 +368,9 @@ function _resolvePermissions(role) {
     var rows = AppUtils.sheetToObjects('Roles');
     for (var i = 0; i < rows.length; i++) {
       var r = rows[i];
-      var rRole = (r['role'] || '').toString().trim();
+      var rRole = (r['role'] || r['Role'] || r['role_id'] || r['الدور'] || '').toString().trim();
       if (rRole === role || _normalizeRole(rRole) === norm) {
-        var perm = (r['permission'] || '').toString().trim();
+        var perm = (r['permission'] || r['Permission'] || r['الصلاحية'] || '').toString().trim();
         if (perm && permissions.indexOf(perm) === -1) permissions.push(perm);
       }
     }
@@ -341,15 +378,19 @@ function _resolvePermissions(role) {
     console.error('_resolvePermissions error: ' + e);
   }
 
-  if (permissions.length === 0) {
-    if (norm === 'ADMIN') {
-      permissions = ['canViewDashboard', 'canEvaluate', 'canAddInstructor', 'canManageSystem'];
-    } else if (norm === 'MANAGER') {
-      permissions = ['canViewDashboard', 'canEvaluate'];
-    } else {
-      permissions = ['canViewOwnDashboard'];
-    }
+  // Ensure baseline guaranteed permissions
+  if (norm === 'ADMIN') {
+    ['canViewDashboard', 'canEvaluate', 'canAddInstructor', 'canManageSystem', 'canViewOwnDashboard'].forEach(function(p){
+      if (permissions.indexOf(p) === -1) permissions.push(p);
+    });
+  } else if (norm === 'MANAGER') {
+    ['canViewDashboard', 'canEvaluate', 'canViewOwnDashboard'].forEach(function(p){
+      if (permissions.indexOf(p) === -1) permissions.push(p);
+    });
+  } else {
+    if (permissions.indexOf('canViewOwnDashboard') === -1) permissions.push('canViewOwnDashboard');
   }
+
   return permissions;
 }
 

@@ -24,10 +24,10 @@ function getRowsFromTable(tableName) {
 }
 
 // Write aliases
-function addNewDepartmentRow(p) { return addDepartment(p); }
-function addNewClassRow(p)      { return addClass({ name: p.name, departmentId: p.department_id, grade: p.grade }); }
-function addNewQuestionRow(p)   { return addQuestion(p); }
-function addNewInstructorRow(p) {
+function addNewDepartmentRow(p, optionalToken) { return addDepartment(p, optionalToken); }
+function addNewClassRow(p, optionalToken)      { return addClass({ name: p.name, departmentId: p.department_id, grade: p.grade }, optionalToken); }
+function addNewQuestionRow(p, optionalToken)   { return addQuestion(p, optionalToken); }
+function addNewInstructorRow(p, optionalToken) {
   return addInstructor({
     name:         p.name,
     email:        p.email,
@@ -35,15 +35,16 @@ function addNewInstructorRow(p) {
     branch:       p.branch,
     branchId:     p.branchId,
     position:     p.position
-  });
+  }, optionalToken);
 }
-function addNewManagerRow(p) { return addManager(p); }
+function addNewManagerRow(p, optionalToken) { return addManager(p, optionalToken); }
 
 /**
  * Maps the client payload to submitEvaluation()'s shape.
  * Stores basic info fields directly in the Evaluations sheet.
  */
-function saveEvaluationSubmission(payload) {
+function saveEvaluationSubmission(payload, optionalToken) {
+  var token = optionalToken || (payload && (payload.authToken || payload.token));
   return submitEvaluation({
     teacherId:      payload.teacherId || '',
     teacherName:    payload.teacherName || '',
@@ -54,8 +55,10 @@ function saveEvaluationSubmission(payload) {
     classSpec:      payload.classSpec || '',
     semester:       payload.semester || '',
     notes:          payload.notes || '',
-    responses:      payload.ratings
-  });
+    responses:      payload.ratings,
+    authToken:      token,
+    userEmail:      payload.userEmail || ''
+  }, token);
 }
 
 // ── Generic Table Reader ──────────────────────────────────────────────────────
@@ -260,14 +263,14 @@ function debugGetRows(tableName) {
  * Generic row-append.
  * Reads headers once, writes the row, invalidates the sheet cache.
  */
-function _extractCallerEmail(arg1, arg2, arg3) {
-  var tokenOrEmail = (arg1 && (arg1.authToken || arg1.token || arg1.userEmail)) ||
-                     (arg2 && (arg2.authToken || arg2.token || arg2.userEmail)) ||
-                     (arg3 && (arg3.authToken || arg3.token || arg3.userEmail)) ||
-                     (typeof arg1 === 'string' && (arg1.indexOf('@') !== -1 || arg1.indexOf('.') !== -1) ? arg1 : null) ||
-                     (typeof arg2 === 'string' && (arg2.indexOf('@') !== -1 || arg2.indexOf('.') !== -1) ? arg2 : null) ||
-                     (typeof arg3 === 'string' && (arg3.indexOf('@') !== -1 || arg3.indexOf('.') !== -1) ? arg3 : null);
-  return _resolveCallerEmail(tokenOrEmail);
+function _extractCallerEmail() {
+  for (var i = 0; i < arguments.length; i++) {
+    var arg = arguments[i];
+    if (!arg) continue;
+    var resolved = _resolveCallerEmail(arg);
+    if (resolved) return resolved;
+  }
+  return _resolveCallerEmail(null);
 }
 
 function addRow(tableName, payload, optionalToken) {
@@ -328,21 +331,21 @@ function addRow(tableName, payload, optionalToken) {
 
 // ── Convenience write wrappers ───────────────────────────────────────────────
 
-function addDepartment(p) {
-  return addRow('Departments', { department_name: p.name });
+function addDepartment(p, optionalToken) {
+  return addRow('Departments', { department_name: p.name }, optionalToken);
 }
-function addClass(p) {
-  return addRow('Classes', { class_name: p.name, department_id: p.departmentId, grade: p.grade });
+function addClass(p, optionalToken) {
+  return addRow('Classes', { class_name: p.name, department_id: p.departmentId, grade: p.grade }, optionalToken);
 }
-function addQuestion(p) {
+function addQuestion(p, optionalToken) {
   return addRow('Questions', {
     category:      p.category,
     question_text: p.text,
     weight:        p.weight,
     status:        'Active'
-  });
+  }, optionalToken);
 }
-function addInstructor(p) {
+function addInstructor(p, optionalToken) {
   var row = {
     name:          p.name,
     email:         p.email,
@@ -351,15 +354,15 @@ function addInstructor(p) {
   };
   if (p.branchId) row.branch_id = p.branchId;
   if (p.branch) row.school_branch = p.branch;
-  return addRow('Employees', row);
+  return addRow('Employees', row, optionalToken);
 }
 
 function getBranches() {
   return getActiveRows('Branches');
 }
 
-function addNewBranchRow(p) {
-  return addRow('Branches', { branch_name: p.name });
+function addNewBranchRow(p, optionalToken) {
+  return addRow('Branches', { branch_name: p.name }, optionalToken);
 }
 
 /**

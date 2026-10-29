@@ -81,12 +81,14 @@ function getActiveQuestions() {
 }
 
 // ── Submit evaluation ─────────────────────────────────────────────────────────
-function _evalExtractCaller(arg1, arg2) {
-  var tokenOrEmail = (arg1 && (arg1.authToken || arg1.token || arg1.userEmail)) ||
-                     (arg2 && (arg2.authToken || arg2.token || arg2.userEmail)) ||
-                     (typeof arg1 === 'string' && (arg1.indexOf('@') !== -1 || arg1.indexOf('.') !== -1) ? arg1 : null) ||
-                     (typeof arg2 === 'string' && (arg2.indexOf('@') !== -1 || arg2.indexOf('.') !== -1) ? arg2 : null);
-  return _resolveCallerEmail(tokenOrEmail);
+function _evalExtractCaller() {
+  for (var i = 0; i < arguments.length; i++) {
+    var arg = arguments[i];
+    if (!arg) continue;
+    var resolved = _resolveCallerEmail(arg);
+    if (resolved) return resolved;
+  }
+  return _resolveCallerEmail(null);
 }
 
 function submitEvaluation(payload, optionalToken) {
