@@ -553,6 +553,39 @@
 </div>
 
 <script>
+// ── Block F12 & DevTools Shortcuts ──────────────────────────────────────────
+(function(){
+  function blockDevTools(e){
+    // F12 key
+    if (e.keyCode === 123 || e.key === 'F12') {
+      e.preventDefault();
+      e.stopPropagation();
+      return false;
+    }
+    // Ctrl+Shift+I (DevTools), Ctrl+Shift+J (Console), Ctrl+Shift+C (Inspect)
+    if (e.ctrlKey && e.shiftKey && (e.keyCode === 73 || e.keyCode === 74 || e.keyCode === 67 || e.key === 'I' || e.key === 'i' || e.key === 'J' || e.key === 'j' || e.key === 'C' || e.key === 'c')) {
+      e.preventDefault();
+      e.stopPropagation();
+      return false;
+    }
+    // Ctrl+U (View Source)
+    if (e.ctrlKey && (e.keyCode === 85 || e.key === 'u' || e.key === 'U')) {
+      e.preventDefault();
+      e.stopPropagation();
+      return false;
+    }
+  }
+  window.addEventListener('keydown', blockDevTools, true);
+  document.addEventListener('keydown', blockDevTools, true);
+
+  // Prevent right-click Inspect on non-input elements
+  document.addEventListener('contextmenu', function(e){
+    var tag = (e.target && e.target.tagName || '').toLowerCase();
+    if(tag !== 'input' && tag !== 'textarea') {
+      e.preventDefault();
+    }
+  }, true);
+})();
 var globalEmployeesCached = [];
 var globalQuestionsCached = [];
 var currentUserProfile    = null;
@@ -894,7 +927,7 @@ function loadModule(name){
     setContent('<div class="card" style="padding:40px;text-align:center;"><i class="fas fa-spinner fa-spin" style="color:var(--sta-red);font-size:1.5rem;"></i><p style="color:#9E9E9E;margin-top:12px;font-size:0.85rem;">جاري تحميل تحليلات البيانات التاريخية...</p></div>');
     google.script.run.withSuccessHandler(function(html){
       setContent(html);
-      // html is DataAnalytics page, its <script> will auto-init via DOMContentLoaded
+      // html is DataAnalytics page, its scripts will auto-init via DOMContentLoaded
       // re-run inline scripts manually for HtmlService
       var scripts = document.getElementById('content-area').querySelectorAll('script');
       scripts.forEach(function(s){
