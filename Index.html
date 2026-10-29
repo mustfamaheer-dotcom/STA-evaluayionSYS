@@ -83,8 +83,8 @@
       font-size: 0.75rem; font-weight: 700; color: #fff; flex-shrink: 0;
       box-shadow: 0 4px 12px rgba(211,47,47,0.25);
     }
-    .user-info-name { font-size: 0.75rem; font-weight: 600; color: var(--text-primary); }
-    .user-info-role { font-size: 0.65rem; color: var(--text-muted); margin-top: 1px; }
+    .user-info-name { font-size: 0.75rem; font-weight: 700; color: var(--text-primary); }
+    .user-info-role { font-size: 0.68rem; color: var(--text-muted); margin-top: 1px; max-width: 170px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
 
     /* ── Topbar ── */
     #topbar {
@@ -733,7 +733,15 @@ function boot(profile){
   var initials=displayName.substring(0,2).toUpperCase();
   document.getElementById('user-avatar').textContent = initials;
   document.getElementById('user-display').textContent = displayName;
-  document.getElementById('role-badge').textContent = profile.role || '—';
+  var displayRole = profile.role || '—';
+  if(profile.position){
+    displayRole += ' - ' + profile.position;
+  }
+  var roleBadgeEl = document.getElementById('role-badge');
+  if(roleBadgeEl){
+    roleBadgeEl.textContent = displayRole;
+    roleBadgeEl.title = displayRole;
+  }
   showModal('مرحباً بك، ' + esc(displayName), 'مرحباً بك في نظام تقييم المعلمين - أكاديمية السويدي الفنيه.');
   var p=profile.permissions||[], h='';
   if(p.includes('canViewDashboard')){

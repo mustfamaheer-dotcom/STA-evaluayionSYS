@@ -207,7 +207,8 @@ function _buildProfile(email) {
   var role         = _resolveRole(key);
   var permissions  = _resolvePermissions(role);
   var roleLabel    = _getRoleLabel(role);
-  var profile = { email: key, name: _getUserName(key), role: roleLabel, permissions: permissions };
+  var position     = _getUserPosition(key);
+  var profile = { email: key, name: _getUserName(key), role: roleLabel, position: position, permissions: permissions };
   _profileCache[key] = profile;
   return profile;
 }
@@ -238,6 +239,22 @@ function _getUserName(emailLower) {
 
 function _getManagerName(emailLower) {
   return _getUserName(emailLower);
+}
+
+function _getUserPosition(emailLower) {
+  try {
+    var empRows = AppUtils.sheetToObjects('Employees');
+    for (var j = 0; j < empRows.length; j++) {
+      var er = empRows[j];
+      if ((er['email'] || '').toString().toLowerCase().trim() === emailLower) {
+        var pos = (er['position'] || '').toString().trim();
+        if (pos) return pos;
+      }
+    }
+  } catch (e) {
+    console.error('_getUserPosition error: ' + e);
+  }
+  return '';
 }
 
 function _normalizeRole(rawRole) {
