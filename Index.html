@@ -449,7 +449,7 @@
         <i class="fas fa-shield-alt"></i><span>منظومة الملاحظة والتقييم الأكاديمي</span>
       </div>
       <h1 style="font-size:2rem;font-weight:800;color:#fff;line-height:1.35;margin-bottom:14px;">
-        نظام تقييم وملاحظة <span style="background:linear-gradient(135deg, #ff5252, #ff7b7b);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">الأداء الصفي للمعلمين</span>
+        نظام تقييم وملاحظة <span style="background:linear-gradient(135deg, #ff5252, #ff7b7b);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;">الأداء الصفي للمعلمين</span>
       </h1>
       <p style="font-size:0.88rem;color:rgba(255,255,255,0.72);line-height:1.75;margin-bottom:30px;">
         منظومة رقمية شاملة لمتابعة جودة التعليم والتدريب الفني، تمكن المشرفين والمديرين من إجراء ملاحظات صفية دقيقة ومتابعة مؤشرات أداء الكادر الأكاديمي بشفافية واحترافية.
@@ -2856,8 +2856,8 @@ function renderCatInsightChart(categories, overallAvg, empId, totalEvals, bestCa
     +'</tr>';
   }).join('');
   var sorted=categories.slice().sort(function(a,b){return parseFloat(b.avg)-parseFloat(a.avg);});
-  var chartBars='<div style="display:flex;justify-content:space-around;align-items:flex-end;height:140px;padding:4px 0 0;gap:6px;">'
-    +sorted.map(function(c){
+  var chartBars='<div style="display:flex;justify-content:space-around;align-items:flex-end;height:140px;padding:4px 0 0;gap:6px;">' +
+    sorted.map(function(c){
       var sc=parseFloat(c.avg);
       var pct=Math.round((sc/5)*100);
       var col=scoreColor(sc);
@@ -3953,8 +3953,8 @@ function renderMyEvaluations(data){
       +'</tr>';
     }).join('');
     var sortedCats=categories.slice().sort(function(a,b){return parseFloat(b.avg)-parseFloat(a.avg);});
-    var chartBars='<div style="display:flex;justify-content:space-around;align-items:flex-end;height:140px;padding:4px 0 0;gap:6px;">'
-      +sortedCats.map(function(c){
+    var chartBars='<div style="display:flex;justify-content:space-around;align-items:flex-end;height:140px;padding:4px 0 0;gap:6px;">' +
+      sortedCats.map(function(c){
         var sc=parseFloat(c.avg);
         var pct=Math.round((sc/5)*100);
         var col=scoreColor(sc);
@@ -4415,8 +4415,8 @@ function renderEvalDetailsList(data){
       +'</tr>';
     }).join('');
     var sortedCats=categories.slice().sort(function(a,b){return parseFloat(b.avg)-parseFloat(a.avg);});
-    var chartBars='<div style="display:flex;justify-content:space-around;align-items:flex-end;height:140px;padding:4px 0 0;gap:6px;">'
-      +sortedCats.map(function(c){
+    var chartBars='<div style="display:flex;justify-content:space-around;align-items:flex-end;height:140px;padding:4px 0 0;gap:6px;">' +
+      sortedCats.map(function(c){
         var sc=parseFloat(c.avg);
         var pct=Math.round((sc/5)*100);
         var col=scoreColor(sc);
@@ -4612,8 +4612,8 @@ function renderEvalDetailView(data){
         +'<td style="padding:6px 4px;text-align:center;"><span class="badge '+badgeCls+'" style="font-size:0.5rem;font-weight:800;">'+lbl+'</span></td>'
       +'</tr>';
     }).join('');
-    var chartBars2='<div style="display:flex;justify-content:space-around;align-items:flex-end;height:100px;padding:2px 0 0;gap:4px;">'
-      +catAvgs.map(function(c){
+    var chartBars2='<div style="display:flex;justify-content:space-around;align-items:flex-end;height:100px;padding:2px 0 0;gap:4px;">' +
+      catAvgs.map(function(c){
         var sc=c.avg;
         var pct=Math.round((sc/5)*100);
         var col=scoreColor(sc);
