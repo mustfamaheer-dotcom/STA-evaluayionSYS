@@ -335,6 +335,9 @@
           <div class="user-info-role" id="role-badge">—</div>
         </div>
       </div>
+      <button onclick="doLogout()" style="margin-top:12px;width:100%;padding:8px 12px;border-radius:10px;border:1px solid rgba(211,47,47,0.25);background:rgba(211,47,47,0.06);color:var(--sta-red);font-size:0.75rem;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:all 0.2s ease;">
+        <i class="fas fa-sign-out-alt"></i><span>تسجيل الخروج</span>
+      </button>
     </div>
   </div>
 
@@ -410,6 +413,64 @@
   </div>
 </div>
 
+<!-- ════════════════════════════════════════════
+     STA LOGIN OVERLAY (Email & Password)
+════════════════════════════════════════════ -->
+<div id="login-overlay" style="position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:#f8fafc;background-image:radial-gradient(ellipse 80% 60% at 10% 0%, rgba(211,47,47,0.08) 0%, transparent 60%), radial-gradient(ellipse 60% 50% at 90% 100%, rgba(59,130,246,0.08) 0%, transparent 60%);">
+  <div style="width:100%;max-width:420px;margin:20px;">
+    <div class="glass-modal" style="padding:0;overflow:hidden;border:1px solid rgba(15,23,42,0.12);box-shadow:0 20px 40px rgba(15,23,42,0.12);">
+      
+      <!-- Brand Header -->
+      <div style="background:linear-gradient(135deg,#D32F2F 0%,#B71C1C 100%);padding:32px 28px;text-align:center;position:relative;overflow:hidden;">
+        <div style="position:absolute;top:-20px;left:-20px;width:100px;height:100px;border-radius:50%;background:rgba(255,255,255,0.08);"></div>
+        <div style="position:absolute;bottom:-30px;right:20px;width:90px;height:90px;border-radius:50%;background:rgba(255,255,255,0.06);"></div>
+        <div style="font-size:2.2rem;font-weight:900;color:#fff;letter-spacing:3px;line-height:1;">STA</div>
+        <div style="color:rgba(255,255,255,0.92);font-size:0.88rem;font-weight:700;margin-top:8px;">أكاديمية السويدي التقنية</div>
+        <div style="color:rgba(255,255,255,0.75);font-size:0.72rem;margin-top:3px;letter-spacing:0.5px;">نظام التقييم والملاحظة الصفية للمعلمين</div>
+      </div>
+
+      <!-- Login Form Card -->
+      <div style="padding:32px 28px;">
+        <div style="font-size:1rem;font-weight:700;color:var(--text-primary);margin-bottom:6px;text-align:center;">تسجيل الدخول للنظام</div>
+        <div style="font-size:0.75rem;color:var(--text-muted);text-align:center;margin-bottom:20px;">أدخل البريد الإلكتروني وكلمة المرور الخاصة بحسابك</div>
+
+        <div id="login-error" style="display:none;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.25);border-radius:10px;padding:12px 14px;font-size:0.8rem;color:#dc2626;margin-bottom:18px;text-align:center;line-height:1.5;"></div>
+
+        <form id="login-form" onsubmit="handleLoginSubmit(event)" style="display:flex;flex-direction:column;gap:18px;">
+          <div>
+            <label class="form-label" style="font-size:0.78rem;">البريد الإلكتروني</label>
+            <div style="position:relative;">
+              <input id="login-email" type="email" class="form-input" placeholder="name@sta.edu.eg" required autocomplete="username" dir="ltr" style="padding-right:38px;">
+              <i class="fas fa-envelope" style="position:absolute;right:14px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:0.85rem;"></i>
+            </div>
+          </div>
+
+          <div>
+            <label class="form-label" style="font-size:0.78rem;">كلمة المرور</label>
+            <div style="position:relative;">
+              <input id="login-password" type="password" class="form-input" placeholder="••••••••" required autocomplete="current-password" dir="ltr" style="padding-right:38px;padding-left:40px;">
+              <i class="fas fa-lock" style="position:absolute;right:14px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:0.85rem;"></i>
+              <button type="button" onclick="togglePasswordVisibility()" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text-muted);padding:4px;outline:none;">
+                <i id="login-pw-eye" class="fas fa-eye"></i>
+              </button>
+            </div>
+          </div>
+
+          <button type="submit" id="login-submit-btn" class="btn-primary" style="margin-top:6px;height:44px;display:flex;align-items:center;justify-content:center;gap:10px;">
+            <span id="login-btn-label">تسجيل الدخول</span>
+            <i id="login-btn-spinner" class="fas fa-spinner fa-spin" style="display:none;"></i>
+          </button>
+        </form>
+
+        <div style="text-align:center;margin-top:22px;padding-top:16px;border-top:1px solid var(--glass-border);font-size:0.72rem;color:var(--text-muted);line-height:1.5;">
+          كلمة المرور الافتراضية الأولية: <strong style="color:var(--text-primary);dir:ltr;">sta@2025</strong><br>
+          في حال نسيان كلمة المرور، يرجى التواصل مع مسؤول النظام (Admin)
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
 var globalEmployeesCached = [];
 var globalQuestionsCached = [];
@@ -454,6 +515,81 @@ function closeConfirm(){
   _confirmCallback = null;
 }
 
+var currentToken = null;
+
+function togglePasswordVisibility(){
+  var inp = document.getElementById('login-password');
+  var eye = document.getElementById('login-pw-eye');
+  if(!inp || !eye) return;
+  if(inp.type === 'password'){
+    inp.type = 'text';
+    eye.className = 'fas fa-eye-slash';
+  } else {
+    inp.type = 'password';
+    eye.className = 'fas fa-eye';
+  }
+}
+
+function showLoginError(msg){
+  var el = document.getElementById('login-error');
+  if(!el) return;
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+
+function handleLoginSubmit(e){
+  if(e) e.preventDefault();
+  var email = (document.getElementById('login-email').value || '').trim();
+  var pw = (document.getElementById('login-password').value || '').trim();
+  var errEl = document.getElementById('login-error');
+  if(errEl) errEl.style.display = 'none';
+
+  var btn = document.getElementById('login-submit-btn');
+  var label = document.getElementById('login-btn-label');
+  var spinner = document.getElementById('login-btn-spinner');
+  if(btn) btn.disabled = true;
+  if(label) label.textContent = 'جاري التحقق...';
+  if(spinner) spinner.style.display = 'inline-block';
+
+  google.script.run
+    .withSuccessHandler(function(res){
+      if(btn) btn.disabled = false;
+      if(label) label.textContent = 'تسجيل الدخول';
+      if(spinner) spinner.style.display = 'none';
+
+      if(res && res.success){
+        currentToken = res.token;
+        try { localStorage.setItem('STA_AUTH_TOKEN', res.token); } catch(ex){}
+        var overlay = document.getElementById('login-overlay');
+        if(overlay) overlay.style.display = 'none';
+        boot(res.profile);
+      } else {
+        showLoginError(res ? (res.error || 'بيانات الدخول غير صحيحة') : 'تعذر الاتصال بالخادم');
+      }
+    })
+    .withFailureHandler(function(err){
+      if(btn) btn.disabled = false;
+      if(label) label.textContent = 'تسجيل الدخول';
+      if(spinner) spinner.style.display = 'none';
+      showLoginError('خطأ في الاتصال بالخادم: ' + esc(err.message || err));
+    })
+    .loginUser(email, pw);
+}
+
+function doLogout(){
+  try { localStorage.removeItem('STA_AUTH_TOKEN'); } catch(e){}
+  currentToken = null;
+  currentUserProfile = null;
+  var overlay = document.getElementById('login-overlay');
+  if(overlay) overlay.style.display = 'flex';
+  document.getElementById('sidebar-menu').innerHTML =
+    '<div style="padding:0 16px;"><div class="skel" style="height:36px;margin-bottom:6px;"></div><div class="skel" style="height:36px;margin-bottom:6px;"></div><div class="skel" style="height:36px;"></div></div>';
+  setContent('<div class="card" style="padding:40px;text-align:center;"><i class="fas fa-spinner fa-spin" style="color:var(--sta-red);font-size:1.3rem;"></i><p style="color:#9E9E9E;margin-top:12px;font-size:0.85rem;">جاري تهيئة بيئة العمل...</p></div>');
+  document.getElementById('user-avatar').textContent = '?';
+  document.getElementById('user-display').textContent = 'يرجى تسجيل الدخول';
+  document.getElementById('role-badge').textContent = '—';
+}
+
 /* ── Boot ────────────────────────────────────────────────────────────────── */
 window.addEventListener('DOMContentLoaded',function(){
   var closeBtn=document.getElementById('modal-close-btn');
@@ -467,10 +603,33 @@ window.addEventListener('DOMContentLoaded',function(){
     closeConfirm();
   });
 
-  google.script.run
-    .withSuccessHandler(boot)
-    .withFailureHandler(function(e){ setContent('<div style="background:#FFEBEE;color:#C62828;padding:16px;border-radius:10px;font-size:0.85rem;">خطأ في الاتصال بالخادم: '+esc(e.message||e)+'</div>'); })
-    .getUserRolesAndPermissions();
+  // Check saved session in localStorage
+  var savedToken = null;
+  try { savedToken = localStorage.getItem('STA_AUTH_TOKEN'); } catch(e){}
+
+  if(savedToken){
+    google.script.run
+      .withSuccessHandler(function(res){
+        if(res && res.valid && res.profile){
+          currentToken = savedToken;
+          var overlay = document.getElementById('login-overlay');
+          if(overlay) overlay.style.display = 'none';
+          boot(res.profile);
+        } else {
+          // Token invalid or expired — display login screen
+          var ov = document.getElementById('login-overlay');
+          if(ov) ov.style.display = 'flex';
+        }
+      })
+      .withFailureHandler(function(){
+        var ov = document.getElementById('login-overlay');
+        if(ov) ov.style.display = 'flex';
+      })
+      .verifyToken(savedToken);
+  } else {
+    var ov = document.getElementById('login-overlay');
+    if(ov) ov.style.display = 'flex';
+  }
 });
 
 function boot(profile){
@@ -509,6 +668,10 @@ function boot(profile){
       h+=navItem('add-manager','fa-key','إدارة المستخدمين');
     }
   }
+
+  // Account settings for all authenticated users
+  h+='<div class="sidebar-section-label">الحساب</div>';
+  h+=navItem('change-password','fa-lock','تغيير كلمة المرور');
   var navEl=document.getElementById('sidebar-menu');
   if(navEl) navEl.innerHTML=h;
   if(p.includes('canViewDashboard')) loadModule('dashboard');
@@ -821,16 +984,44 @@ function loadModule(name){
   /* ── ADD MANAGER ── */
   } else if(name==='add-manager'){
     if(!currentUserProfile.permissions.includes('canManageSystem')) return;
-    setTitle('إدارة المستخدمين','إدارة صلاحيات الدخول');
+    setTitle('إدارة المستخدمين','إدارة صلاحيات الدخول وإعادة تعيين كلمات المرور');
     setContent(
-      '<div class="card" style="max-width:480px;">'
-        +'<div class="card-header"><span class="card-title"><i class="fas fa-key" style="color:var(--sta-red);margin-left:8px;"></i>منح الصلاحية</span></div>'
-        +'<div class="card-body"><form id="frm-mgr" onsubmit="submitManager(event)" style="display:flex;flex-direction:column;gap:18px;">'
-          +fld('الاسم الكامل','<input type="text" id="mgr-name" class="form-input" required>')
-          +fld('البريد الإلكتروني','<input type="email" id="mgr-email" class="form-input" required placeholder="user@gmail.com">')
-          +fld('الدور','<select id="mgr-role" class="form-input" required><option value="مدير" selected>مدير</option><option value="ADMIN">مدير النظام</option><option value="معلم">معلم</option></select>')
-          +'<button type="submit" id="mgr-btn" class="btn-primary">منح الصلاحية</button>'
-        +'</form></div>'
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;max-width:1000px;">'
+        +'<div class="card">'
+          +'<div class="card-header"><span class="card-title"><i class="fas fa-key" style="color:var(--sta-red);margin-left:8px;"></i>منح الصلاحية / مستخدم جديد</span></div>'
+          +'<div class="card-body"><form id="frm-mgr" onsubmit="submitManager(event)" style="display:flex;flex-direction:column;gap:18px;">'
+            +fld('الاسم الكامل','<input type="text" id="mgr-name" class="form-input" required>')
+            +fld('البريد الإلكتروني','<input type="email" id="mgr-email" class="form-input" required placeholder="user@sta.edu.eg" dir="ltr">')
+            +fld('الدور','<select id="mgr-role" class="form-input" required><option value="مدير" selected>مدير</option><option value="ADMIN">مدير النظام</option><option value="معلم">معلم</option></select>')
+            +'<button type="submit" id="mgr-btn" class="btn-primary">حفظ المستخدم</button>'
+          +'</form></div>'
+        +'</div>'
+        +'<div class="card">'
+          +'<div class="card-header"><span class="card-title"><i class="fas fa-unlock-alt" style="color:var(--sta-red);margin-left:8px;"></i>إعادة تعيين كلمة مرور لمستخدم</span></div>'
+          +'<div class="card-body"><form id="frm-reset-pw" onsubmit="submitAdminResetPassword(event)" style="display:flex;flex-direction:column;gap:18px;">'
+            +fld('البريد الإلكتروني للمستخدم','<input type="email" id="reset-target-email" class="form-input" required placeholder="target@sta.edu.eg" dir="ltr">')
+            +fld('كلمة المرور الجديدة','<input type="text" id="reset-new-pw" class="form-input" required placeholder="sta@2025" minlength="6" dir="ltr">')
+            +'<button type="submit" id="reset-pw-btn" class="btn-primary" style="background:linear-gradient(135deg,#374151,#1f2937);">إعادة تعيين كلمة المرور</button>'
+          +'</form></div>'
+        +'</div>'
+      +'</div>'
+    );
+
+  /* ── CHANGE PASSWORD (Self Service) ── */
+  } else if(name==='change-password'){
+    setTitle('تغيير كلمة المرور','إعدادات الحساب والأمان');
+    setContent(
+      '<div class="card" style="max-width:500px;margin:0 auto;">'
+        +'<div class="card-header"><span class="card-title"><i class="fas fa-lock" style="color:var(--sta-red);margin-left:8px;"></i>تغيير كلمة المرور الخاصة بك</span></div>'
+        +'<div class="card-body">'
+          +'<div id="change-pw-msg" style="display:none;padding:12px 14px;border-radius:10px;font-size:0.82rem;margin-bottom:16px;"></div>'
+          +'<form id="frm-change-pw" onsubmit="submitChangePassword(event)" style="display:flex;flex-direction:column;gap:18px;">'
+            +fld('كلمة المرور الحالية','<input type="password" id="cpw-old" class="form-input" required dir="ltr">')
+            +fld('كلمة المرور الجديدة','<input type="password" id="cpw-new" class="form-input" required minlength="6" placeholder="6 أحرف على الأقل" dir="ltr">')
+            +fld('تأكيد كلمة المرور الجديدة','<input type="password" id="cpw-confirm" class="form-input" required minlength="6" dir="ltr">')
+            +'<button type="submit" id="change-pw-btn" class="btn-primary">تحديث كلمة المرور</button>'
+          +'</form>'
+        +'</div>'
       +'</div>'
     );
 
@@ -3552,11 +3743,79 @@ function submitManager(e){
   google.script.run
     .withSuccessHandler(function(res){
       btnState('mgr-btn',false,'منح الصلاحية');
-      if(res&&res.success){showModal('تم','تم إنشاء الحساب.');document.getElementById('frm-mgr').reset();}
+      if(res&&res.success){showModal('تم','تم إنشاء أو تحديث الحساب بنجاح.');document.getElementById('frm-mgr').reset();}
       else showModal('فشل',(res&&res.error)||'خطأ.',true);
     })
     .withFailureHandler(function(err){btnState('mgr-btn',false,'منح الصلاحية');showModal('خطأ',err.message||err,true);})
-    .addNewManagerRow({name:document.getElementById('mgr-name').value.trim(),email:document.getElementById('mgr-email').value.trim(),role:v('mgr-role')});
+    .addNewManagerRow({name:document.getElementById('mgr-name').value.trim(),email:document.getElementById('mgr-email').value.trim(),role:v('mgr-role')}, currentToken);
+}
+
+function submitAdminResetPassword(e){
+  e.preventDefault();
+  var target = (document.getElementById('reset-target-email').value || '').trim();
+  var newPw = (document.getElementById('reset-new-pw').value || '').trim();
+  btnState('reset-pw-btn', true, 'جاري إعادة التعيين...');
+  google.script.run
+    .withSuccessHandler(function(res){
+      btnState('reset-pw-btn', false, 'إعادة تعيين كلمة المرور');
+      if(res && res.success){
+        showModal('تمت العملية', 'تم تغيير كلمة المرور للمستخدم (' + esc(target) + ') بنجاح إلى: ' + esc(newPw));
+        document.getElementById('frm-reset-pw').reset();
+      } else {
+        showModal('فشل', (res && res.error) || 'تعذر إعادة تعيين كلمة المرور', true);
+      }
+    })
+    .withFailureHandler(function(err){
+      btnState('reset-pw-btn', false, 'إعادة تعيين كلمة المرور');
+      showModal('خطأ', err.message || err, true);
+    })
+    .adminResetPassword(currentToken, target, newPw);
+}
+
+function submitChangePassword(e){
+  e.preventDefault();
+  var oldPw = (document.getElementById('cpw-old').value || '').trim();
+  var newPw = (document.getElementById('cpw-new').value || '').trim();
+  var confirm = (document.getElementById('cpw-confirm').value || '').trim();
+  var msgEl = document.getElementById('change-pw-msg');
+
+  if(newPw !== confirm){
+    if(msgEl){
+      msgEl.style.display = 'block';
+      msgEl.style.background = 'rgba(239,68,68,0.1)';
+      msgEl.style.color = '#dc2626';
+      msgEl.textContent = 'كلمة المرور الجديدة غير متطابقة مع خانة التأكيد';
+    }
+    return;
+  }
+
+  btnState('change-pw-btn', true, 'جاري التحديث...');
+  google.script.run
+    .withSuccessHandler(function(res){
+      btnState('change-pw-btn', false, 'تحديث كلمة المرور');
+      if(res && res.success){
+        showModal('تم بنجاح', 'تم تحديث كلمة المرور الخاصة بك بنجاح!');
+        document.getElementById('frm-change-pw').reset();
+        if(msgEl) msgEl.style.display = 'none';
+      } else {
+        if(msgEl){
+          msgEl.style.display = 'block';
+          msgEl.style.background = 'rgba(239,68,68,0.1)';
+          msgEl.style.color = '#dc2626';
+          msgEl.textContent = (res && res.error) || 'تعذر تحديث كلمة المرور';
+        }
+      }
+    })
+    .withFailureHandler(function(err){
+      btnState('change-pw-btn', false, 'تحديث كلمة المرور');
+      if(msgEl){
+        msgEl.style.display = 'block';
+        msgEl.style.background = 'rgba(239,68,68,0.1)';
+        msgEl.style.color = '#dc2626';
+        msgEl.textContent = 'خطأ: ' + (err.message || err);
+      }
+    })
+    .changePassword(currentToken, oldPw, newPw);
 }
 
 /* ── MY EVALUATIONS RENDERER (Instructor self-monitor) ──────────────────── */

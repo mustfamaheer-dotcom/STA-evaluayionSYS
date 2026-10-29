@@ -21,9 +21,8 @@ const DA_DOMAINS = [
  * Main entry - returns full analytics payload.
  * ISOLATED: reads only HISTORICAL_SOURCE_ID, never dashboard sheets.
  */
-function getHistoricalAnalytics() {
-  var callerEmail = '';
-  try { callerEmail = Session.getActiveUser().getEmail(); } catch(e) {}
+function getHistoricalAnalytics(optionalToken) {
+  var callerEmail = _resolveCallerEmail(optionalToken);
   // Allow dashboard viewers or any authenticated user
   // PermissionGuard.require(callerEmail, 'canViewDashboard'); // uncomment to restrict
 

@@ -81,13 +81,20 @@ function getActiveQuestions() {
 }
 
 // ── Submit evaluation ─────────────────────────────────────────────────────────
-function submitEvaluation(payload) {
+function _evalExtractCaller(arg1, arg2) {
+  var tokenOrEmail = (arg1 && (arg1.authToken || arg1.token || arg1.userEmail)) ||
+                     (arg2 && (arg2.authToken || arg2.token || arg2.userEmail)) ||
+                     (typeof arg1 === 'string' && (arg1.indexOf('@') !== -1 || arg1.indexOf('.') !== -1) ? arg1 : null) ||
+                     (typeof arg2 === 'string' && (arg2.indexOf('@') !== -1 || arg2.indexOf('.') !== -1) ? arg2 : null);
+  return _resolveCallerEmail(tokenOrEmail);
+}
+
+function submitEvaluation(payload, optionalToken) {
   var lock = LockService.getScriptLock();
   lock.waitLock(30000);
 
   try {
-    var callerEmail = '';
-    try { callerEmail = Session.getActiveUser().getEmail(); } catch (e) {}
+    var callerEmail = _evalExtractCaller(optionalToken, payload);
     PermissionGuard.require(callerEmail, 'canEvaluate');
 
     // Verify Manager-Department-Branch assignment scoping (Super Admin bypasses)
@@ -239,9 +246,8 @@ function submitEvaluation(payload) {
 }
 
 // ── Dashboard stats ───────────────────────────────────────────────────────────
-function getDashboardStats(filters) {
-  var callerEmail = '';
-  try { callerEmail = Session.getActiveUser().getEmail(); } catch (e) {}
+function getDashboardStats(filters, optionalToken) {
+  var callerEmail = _evalExtractCaller(optionalToken, filters);
   PermissionGuard.require(callerEmail, 'canViewDashboard');
 
   filters = filters || {};
@@ -644,9 +650,8 @@ function getDashboardStats(filters) {
 }
 
 // ── Get instructor's own evaluations ──────────────────────────────
-function getMyEvaluations() {
-  var callerEmail = '';
-  try { callerEmail = Session.getActiveUser().getEmail(); } catch (e) {}
+function getMyEvaluations(callerEmailParam) {
+  var callerEmail = _evalExtractCaller(callerEmailParam);
   if (!callerEmail) return [];
 
   var empRows = AppUtils.sheetToObjects('Employees');
@@ -704,9 +709,8 @@ function getMyEvaluations() {
 }
 
 // ── Get all managers for filter dropdown ──────────────────────────────────────
-function getAllManagers() {
-  var callerEmail = '';
-  try { callerEmail = Session.getActiveUser().getEmail(); } catch (e) {}
+function getAllManagers(optionalToken) {
+  var callerEmail = _evalExtractCaller(optionalToken);
   PermissionGuard.require(callerEmail, 'canViewDashboard');
 
   var rows = AppUtils.sheetToObjects('Managers');
@@ -725,9 +729,8 @@ function getAllManagers() {
 
 
 // ── Get all evaluations for a specific instructor (manager only) ──────────────
-function getEvaluationsByInstructor(teacherId) {
-  var callerEmail = '';
-  try { callerEmail = Session.getActiveUser().getEmail(); } catch (e) {}
+function getEvaluationsByInstructor(teacherId, optionalToken) {
+  var callerEmail = _evalExtractCaller(optionalToken);
   PermissionGuard.require(callerEmail, 'canViewDashboard');
 
   var managersRows = AppUtils.sheetToObjects('Managers');
@@ -772,9 +775,8 @@ function getEvaluationsByInstructor(teacherId) {
 }
 
 // ── Get full evaluation details with question-by-question answers ─────────────
-function getEvaluationFullDetails(evaluationId) {
-  var callerEmail = '';
-  try { callerEmail = Session.getActiveUser().getEmail(); } catch (e) {}
+function getEvaluationFullDetails(evaluationId, optionalToken) {
+  var callerEmail = _evalExtractCaller(optionalToken);
   var profile = _buildProfile(callerEmail);
   var isInstructor = (profile.role === 'مدرب' || profile.role === 'معلم' || profile.role === 'Instructor');
   if (!isInstructor) {
@@ -883,9 +885,8 @@ function getEvaluationFullDetails(evaluationId) {
 }
 
 // ── Get instructor aggregated data (evals + category summary + KPIs) ───────────
-function getInstructorAggregatedData(teacherId) {
-  var callerEmail = '';
-  try { callerEmail = Session.getActiveUser().getEmail(); } catch (e) {}
+function getInstructorAggregatedData(teacherId, optionalToken) {
+  var callerEmail = _evalExtractCaller(optionalToken);
   // Allow if has dashboard permission OR if caller is the teacher themselves
   var callerIsTeacher = false;
   if (callerEmail && teacherId) {

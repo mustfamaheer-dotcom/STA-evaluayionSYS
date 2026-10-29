@@ -26,9 +26,8 @@ function getActiveEmployees() {
  * Reads from cache — no extra spreadsheet round-trips if called after
  * getActiveEmployees() or getDashboardStats() in the same execution.
  */
-function getEmployeeProfile(employeeId) {
-  var callerEmail = '';
-  try { callerEmail = Session.getActiveUser().getEmail(); } catch (e) {}
+function getEmployeeProfile(employeeId, optionalToken) {
+  var callerEmail = _resolveCallerEmail(optionalToken);
   PermissionGuard.require(callerEmail, 'canEvaluate');
 
   var empIdStr = employeeId.toString();
@@ -56,9 +55,8 @@ function getEmployeeProfile(employeeId) {
 /**
  * Returns the logged-in user's own employee record matched by email.
  */
-function getMyEmployeeRecord() {
-  var callerEmail = '';
-  try { callerEmail = Session.getActiveUser().getEmail(); } catch (e) {}
+function getMyEmployeeRecord(optionalToken) {
+  var callerEmail = _resolveCallerEmail(optionalToken);
   if (!callerEmail) return null;
 
   var rows = AppUtils.sheetToObjects('Employees');
@@ -93,5 +91,3 @@ function _buildDeptMap() {
   }
   return map;
 }
-
-

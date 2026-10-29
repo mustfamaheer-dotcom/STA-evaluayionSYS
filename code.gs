@@ -260,10 +260,19 @@ function debugGetRows(tableName) {
  * Generic row-append.
  * Reads headers once, writes the row, invalidates the sheet cache.
  */
-function addRow(tableName, payload) {
+function _extractCallerEmail(arg1, arg2, arg3) {
+  var tokenOrEmail = (arg1 && (arg1.authToken || arg1.token || arg1.userEmail)) ||
+                     (arg2 && (arg2.authToken || arg2.token || arg2.userEmail)) ||
+                     (arg3 && (arg3.authToken || arg3.token || arg3.userEmail)) ||
+                     (typeof arg1 === 'string' && (arg1.indexOf('@') !== -1 || arg1.indexOf('.') !== -1) ? arg1 : null) ||
+                     (typeof arg2 === 'string' && (arg2.indexOf('@') !== -1 || arg2.indexOf('.') !== -1) ? arg2 : null) ||
+                     (typeof arg3 === 'string' && (arg3.indexOf('@') !== -1 || arg3.indexOf('.') !== -1) ? arg3 : null);
+  return _resolveCallerEmail(tokenOrEmail);
+}
+
+function addRow(tableName, payload, optionalToken) {
   try {
-    var callerEmail = '';
-    try { callerEmail = Session.getActiveUser().getEmail(); } catch (e) {}
+    var callerEmail = _extractCallerEmail(optionalToken, payload);
     PermissionGuard.require(callerEmail, 'canManageSystem');
 
     var ss    = AppUtils.getDB();
@@ -379,9 +388,8 @@ function getClassesWithDetails() {
 /**
  * Updates a class's name, department, or grade
  */
-function updateClass(classId, p) {
-  var callerEmail = '';
-  try { callerEmail = Session.getActiveUser().getEmail(); } catch (e) {}
+function updateClass(classId, p, optionalToken) {
+  var callerEmail = _extractCallerEmail(optionalToken, p);
   PermissionGuard.require(callerEmail, 'canManageSystem');
 
   var targetId = (classId || '').toString().trim();
@@ -424,9 +432,8 @@ function updateClass(classId, p) {
 /**
  * Deletes / deactivates a class
  */
-function deleteClass(classId) {
-  var callerEmail = '';
-  try { callerEmail = Session.getActiveUser().getEmail(); } catch (e) {}
+function deleteClass(classId, optionalToken) {
+  var callerEmail = _extractCallerEmail(optionalToken);
   PermissionGuard.require(callerEmail, 'canManageSystem');
 
   var targetId = (classId || '').toString().trim();
@@ -466,9 +473,8 @@ function deleteClass(classId) {
 /**
  * Updates a branch's name or status
  */
-function updateBranch(branchId, p) {
-  var callerEmail = '';
-  try { callerEmail = Session.getActiveUser().getEmail(); } catch (e) {}
+function updateBranch(branchId, p, optionalToken) {
+  var callerEmail = _extractCallerEmail(optionalToken, p);
   PermissionGuard.require(callerEmail, 'canManageSystem');
 
   var targetId = (branchId || '').toString().trim();
@@ -507,9 +513,8 @@ function updateBranch(branchId, p) {
 /**
  * Deletes / deactivates a branch
  */
-function deleteBranch(branchId) {
-  var callerEmail = '';
-  try { callerEmail = Session.getActiveUser().getEmail(); } catch (e) {}
+function deleteBranch(branchId, optionalToken) {
+  var callerEmail = _extractCallerEmail(optionalToken);
   PermissionGuard.require(callerEmail, 'canManageSystem');
 
   var targetId = (branchId || '').toString().trim();
@@ -572,9 +577,8 @@ function getBranchDepartments(branchId) {
   return result;
 }
 
-function addBranchDepartment(branchId, departmentId) {
-  var callerEmail = '';
-  try { callerEmail = Session.getActiveUser().getEmail(); } catch (e) {}
+function addBranchDepartment(branchId, departmentId, optionalToken) {
+  var callerEmail = _extractCallerEmail(optionalToken);
   PermissionGuard.require(callerEmail, 'canManageSystem');
   var bds = AppUtils.sheetToObjects('BranchDepartments');
   for (var i = 0; i < bds.length; i++) {
@@ -587,9 +591,8 @@ function addBranchDepartment(branchId, departmentId) {
   return addRow('BranchDepartments', { branch_id: branchId, department_id: departmentId });
 }
 
-function removeBranchDepartment(branchDeptId) {
-  var callerEmail = '';
-  try { callerEmail = Session.getActiveUser().getEmail(); } catch (e) {}
+function removeBranchDepartment(branchDeptId, optionalToken) {
+  var callerEmail = _extractCallerEmail(optionalToken);
   PermissionGuard.require(callerEmail, 'canManageSystem');
   try {
     var sheet = AppUtils.getDB().getSheetByName('BranchDepartments');
@@ -613,9 +616,8 @@ function removeBranchDepartment(branchDeptId) {
 /**
  * Returns all active department assignments for a specific manager
  */
-function getManagerDepartments(managerId) {
-  var callerEmail = '';
-  try { callerEmail = Session.getActiveUser().getEmail(); } catch (e) {}
+function getManagerDepartments(managerId, optionalToken) {
+  var callerEmail = _extractCallerEmail(optionalToken);
   PermissionGuard.require(callerEmail, 'canViewDashboard');
 
   var mds = AppUtils.sheetToObjects('ManagerDepartments');
@@ -658,9 +660,8 @@ function getManagerDepartments(managerId) {
 /**
  * Add a department assignment to a manager in a specific branch
  */
-function addManagerDepartment(managerId, departmentId, branchId) {
-  var callerEmail = '';
-  try { callerEmail = Session.getActiveUser().getEmail(); } catch (e) {}
+function addManagerDepartment(managerId, departmentId, branchId, optionalToken) {
+  var callerEmail = _extractCallerEmail(optionalToken);
   PermissionGuard.require(callerEmail, 'canManageSystem');
 
   var mId = (managerId || '').toString().trim();
@@ -696,9 +697,8 @@ function addManagerDepartment(managerId, departmentId, branchId) {
  * Remove a department assignment from a manager
  * Supports deletion by mgrDeptId or by triple combination (managerId, departmentId, branchId)
  */
-function removeManagerDepartment(mgrDeptId, managerId, departmentId, branchId) {
-  var callerEmail = '';
-  try { callerEmail = Session.getActiveUser().getEmail(); } catch (e) {}
+function removeManagerDepartment(mgrDeptId, managerId, departmentId, branchId, optionalToken) {
+  var callerEmail = _extractCallerEmail(optionalToken);
   PermissionGuard.require(callerEmail, 'canManageSystem');
 
   var targetId = (mgrDeptId || '').toString().trim();
@@ -765,9 +765,8 @@ function removeManagerDepartment(mgrDeptId, managerId, departmentId, branchId) {
  * Returns teachers filtered by the logged-in manager's assigned departments and branches.
  * Super Admins see ALL teachers.
  */
-function getTeachersForCurrentManager() {
-  var callerEmail = '';
-  try { callerEmail = Session.getActiveUser().getEmail(); } catch (e) {}
+function getTeachersForCurrentManager(optionalToken) {
+  var callerEmail = _extractCallerEmail(optionalToken);
   PermissionGuard.require(callerEmail, 'canEvaluate');
 
   var userRole = (_resolveRole(callerEmail.toLowerCase().trim()) || '').toUpperCase();
@@ -842,9 +841,8 @@ function getTeachersForCurrentManager() {
  * - branchDeptMap: mapping from 'BranchDepartments' sheet
  * - teachers: teachers accessible to current manager (scoped by permissions)
  */
-function getEvaluationFormData() {
-  var callerEmail = '';
-  try { callerEmail = Session.getActiveUser().getEmail(); } catch (e) {}
+function getEvaluationFormData(optionalToken) {
+  var callerEmail = _extractCallerEmail(optionalToken);
   PermissionGuard.require(callerEmail, 'canEvaluate');
 
   // 1. Branches directly from the Branches sheet
@@ -901,9 +899,8 @@ function getEvaluationFormData() {
 /**
  * Returns all managers with their department assignments & scoped teacher count (for Admin UI)
  */
-function getManagersWithDepartments() {
-  var callerEmail = '';
-  try { callerEmail = Session.getActiveUser().getEmail(); } catch (e) {}
+function getManagersWithDepartments(optionalToken) {
+  var callerEmail = _extractCallerEmail(optionalToken);
   PermissionGuard.require(callerEmail, 'canManageSystem');
 
   var managers = AppUtils.sheetToObjects('Managers');
@@ -993,9 +990,8 @@ function getManagersWithDepartments() {
 /**
  * Returns all active teachers with department and branch assignment details
  */
-function getAllTeachersForAssignment() {
-  var callerEmail = '';
-  try { callerEmail = Session.getActiveUser().getEmail(); } catch (e) {}
+function getAllTeachersForAssignment(optionalToken) {
+  var callerEmail = _extractCallerEmail(optionalToken);
   PermissionGuard.require(callerEmail, 'canManageSystem');
 
   var employees = AppUtils.sheetToObjects('Employees');
@@ -1044,9 +1040,8 @@ function getAllTeachersForAssignment() {
 /**
  * Updates a single teacher's department and branch assignment
  */
-function updateTeacherDepartmentBranch(employeeId, departmentId, branchId) {
-  var callerEmail = '';
-  try { callerEmail = Session.getActiveUser().getEmail(); } catch (e) {}
+function updateTeacherDepartmentBranch(employeeId, departmentId, branchId, optionalToken) {
+  var callerEmail = _extractCallerEmail(optionalToken);
   PermissionGuard.require(callerEmail, 'canManageSystem');
 
   var targetId = (employeeId || '').toString().trim();
@@ -1103,9 +1098,8 @@ function updateTeacherDepartmentBranch(employeeId, departmentId, branchId) {
 /**
  * Batch update multiple teachers' department and branch assignments
  */
-function batchUpdateTeacherAssignments(assignments) {
-  var callerEmail = '';
-  try { callerEmail = Session.getActiveUser().getEmail(); } catch (e) {}
+function batchUpdateTeacherAssignments(assignments, optionalToken) {
+  var callerEmail = _extractCallerEmail(optionalToken);
   PermissionGuard.require(callerEmail, 'canManageSystem');
 
   if (!assignments || !assignments.length) return { success: false, error: 'لا توجد بيانات للتحديث' };
@@ -1158,16 +1152,14 @@ function batchUpdateTeacherAssignments(assignments) {
   }
 }
 
-function getAllQuestionsWithWeights() {
-  var callerEmail = '';
-  try { callerEmail = Session.getActiveUser().getEmail(); } catch (e) {}
+function getAllQuestionsWithWeights(optionalToken) {
+  var callerEmail = _extractCallerEmail(optionalToken);
   PermissionGuard.require(callerEmail, 'canManageSystem');
   return AppUtils.sheetToObjects('Questions');
 }
 
-function updateQuestionWeight(questionId, newWeight) {
-  var callerEmail = '';
-  try { callerEmail = Session.getActiveUser().getEmail(); } catch (e) {}
+function updateQuestionWeight(questionId, newWeight, optionalToken) {
+  var callerEmail = _extractCallerEmail(optionalToken);
   PermissionGuard.require(callerEmail, 'canManageSystem');
   try {
     var sheet = AppUtils.getDB().getSheetByName('Questions');
@@ -1190,9 +1182,8 @@ function updateQuestionWeight(questionId, newWeight) {
   }
 }
 
-function updateCategoryWeight(category, newWeight) {
-  var callerEmail = '';
-  try { callerEmail = Session.getActiveUser().getEmail(); } catch (e) {}
+function updateCategoryWeight(category, newWeight, optionalToken) {
+  var callerEmail = _extractCallerEmail(optionalToken);
   PermissionGuard.require(callerEmail, 'canManageSystem');
   try {
     var sheet = AppUtils.getDB().getSheetByName('Questions');
@@ -1216,9 +1207,8 @@ function updateCategoryWeight(category, newWeight) {
     return { success: false, error: e.message };
   }
 }
-function deleteQuestion(questionId) {
-  var callerEmail = '';
-  try { callerEmail = Session.getActiveUser().getEmail(); } catch (e) {}
+function deleteQuestion(questionId, optionalToken) {
+  var callerEmail = _extractCallerEmail(optionalToken);
   PermissionGuard.require(callerEmail, 'canManageSystem');
   try {
     var sheet = AppUtils.getDB().getSheetByName('Questions');
@@ -1238,10 +1228,9 @@ function deleteQuestion(questionId) {
   }
 }
 
-function addManager(p) {
+function addManager(p, optionalToken) {
   try {
-    var callerEmail = '';
-    try { callerEmail = Session.getActiveUser().getEmail(); } catch (e) {}
+    var callerEmail = _extractCallerEmail(optionalToken, p);
     PermissionGuard.require(callerEmail, 'canManageSystem');
 
     var name = (p.name || '').toString().trim();
