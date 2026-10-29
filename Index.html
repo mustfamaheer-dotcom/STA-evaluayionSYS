@@ -423,14 +423,14 @@
 <!-- ════════════════════════════════════════════
      STA FULL-PAGE MODERN LOGIN PORTAL
 ════════════════════════════════════════════ -->
-<div id="login-overlay" style="position:fixed;inset:0;z-index:9999;width:100vw;height:100vh;margin:0;padding:0;background:#f8fafc;display:flex;overflow:hidden;direction:rtl;font-family:'Cairo',sans-serif;">
+<div id="login-overlay" style="position:fixed;inset:0;z-index:9999;width:100vw;height:100vh;margin:0;padding:0;background:linear-gradient(to left, #dbe4ee 0%, #f4f7fa 55%, #ffffff 55%, #ffffff 100%);display:flex;overflow:hidden;direction:rtl;font-family:'Cairo',sans-serif;">
 
-  <!-- ── RIGHT SIDE: SYSTEM INFO & BRANDING (Light Mode) ── -->
-  <div class="login-info-side" style="flex:1.2;background:linear-gradient(145deg, #ffffff 0%, #f8fafc 50%, #f1f5f9 100%);position:relative;display:flex;flex-direction:column;justify-content:space-between;padding:48px 56px;color:#0f172a;overflow:hidden;border-left:1px solid #e2e8f0;">
+  <!-- ── RIGHT SIDE: SYSTEM INFO & BRANDING (Gradient from Right to Left) ── -->
+  <div class="login-info-side" style="flex:1.2;background:linear-gradient(to left, #dce5ef 0%, #eaf0f7 35%, #f5f8fb 70%, #ffffff 100%);position:relative;display:flex;flex-direction:column;justify-content:space-between;padding:48px 56px;color:#0f172a;overflow:hidden;border-left:1px solid #cbd5e1;box-shadow:-6px 0 24px rgba(15,23,42,0.06);z-index:2;">
     
     <!-- Ambient glowing backdrop decorations -->
-    <div style="position:absolute;top:-80px;right:-80px;width:380px;height:380px;border-radius:50%;background:radial-gradient(circle, rgba(211,47,47,0.08) 0%, transparent 70%);pointer-events:none;"></div>
-    <div style="position:absolute;bottom:-100px;left:-60px;width:340px;height:340px;border-radius:50%;background:radial-gradient(circle, rgba(37,99,235,0.06) 0%, transparent 70%);pointer-events:none;"></div>
+    <div style="position:absolute;top:-80px;right:-80px;width:380px;height:380px;border-radius:50%;background:radial-gradient(circle, rgba(211,47,47,0.12) 0%, transparent 65%);pointer-events:none;"></div>
+    <div style="position:absolute;bottom:-100px;left:-60px;width:340px;height:340px;border-radius:50%;background:radial-gradient(circle, rgba(37,99,235,0.08) 0%, transparent 65%);pointer-events:none;"></div>
     
     <!-- Top Brand Header -->
     <div style="position:relative;z-index:2;display:flex;align-items:center;gap:16px;">
@@ -456,31 +456,31 @@
       </p>
 
       <!-- Highlights list -->
-      <div style="display:flex;flex-direction:column;gap:12px;">
-        <div style="display:flex;align-items:flex-start;gap:14px;padding:14px 16px;border-radius:12px;background:#ffffff;border:1px solid #e2e8f0;box-shadow:0 4px 12px rgba(15,23,42,0.04);">
-          <div style="width:38px;height:38px;border-radius:10px;background:rgba(211,47,47,0.1);display:flex;align-items:center;justify-content:center;color:#dc2626;flex-shrink:0;">
-            <i class="fas fa-clipboard-check" style="font-size:1rem;"></i>
+      <div style="display:flex;flex-direction:column;gap:14px;">
+        <div style="display:flex;align-items:flex-start;gap:14px;padding:16px 18px;border-radius:14px;background:rgba(255,255,255,0.92);backdrop-filter:blur(8px);border:1px solid #cbd5e1;box-shadow:0 4px 16px rgba(15,23,42,0.05);">
+          <div style="width:40px;height:40px;border-radius:10px;background:rgba(211,47,47,0.1);display:flex;align-items:center;justify-content:center;color:#dc2626;flex-shrink:0;">
+            <i class="fas fa-clipboard-check" style="font-size:1.05rem;"></i>
           </div>
           <div>
-            <div style="font-size:0.86rem;font-weight:700;color:#1e293b;">ملاحظة صفية وفق 6 مجالات أكاديمية</div>
-            <div style="font-size:0.75rem;color:#64748b;margin-top:2px;">تقييم معياري يشمل الإدارة الصفية، استراتيجيات التدريس، تكنولوجيا التعليم، والتقويم.</div>
+            <div style="font-size:0.88rem;font-weight:700;color:#1e293b;">ملاحظة صفية وفق 6 مجالات أكاديمية</div>
+            <div style="font-size:0.75rem;color:#64748b;margin-top:3px;line-height:1.5;">تقييم معياري يشمل الإدارة الصفية، استراتيجيات التدريس، تكنولوجيا التعليم، والتقويم.</div>
           </div>
         </div>
 
-        <div style="display:flex;align-items:flex-start;gap:14px;padding:14px 16px;border-radius:12px;background:#ffffff;border:1px solid #e2e8f0;box-shadow:0 4px 12px rgba(15,23,42,0.04);">
-          <div style="width:38px;height:38px;border-radius:10px;background:rgba(37,99,235,0.1);display:flex;align-items:center;justify-content:center;color:#2563eb;flex-shrink:0;">
-            <i class="fas fa-chart-line" style="font-size:1rem;"></i>
+        <div style="display:flex;align-items:flex-start;gap:14px;padding:16px 18px;border-radius:14px;background:rgba(255,255,255,0.92);backdrop-filter:blur(8px);border:1px solid #cbd5e1;box-shadow:0 4px 16px rgba(15,23,42,0.05);">
+          <div style="width:40px;height:40px;border-radius:10px;background:rgba(37,99,235,0.1);display:flex;align-items:center;justify-content:center;color:#2563eb;flex-shrink:0;">
+            <i class="fas fa-chart-line" style="font-size:1.05rem;"></i>
           </div>
           <div>
-            <div style="font-size:0.86rem;font-weight:700;color:#1e293b;">لوحات تحليلات تفاعلية وتقارير PDF</div>
-            <div style="font-size:0.75rem;color:#64748b;margin-top:2px;">تصفية ديناميكية حسب الشهر ومقارنة الفروع والأقسام وتصدير تقارير فورية.</div>
+            <div style="font-size:0.88rem;font-weight:700;color:#1e293b;">لوحات تحليلات تفاعلية وتقارير PDF</div>
+            <div style="font-size:0.75rem;color:#64748b;margin-top:3px;line-height:1.5;">تصفية ديناميكية حسب الشهر ومقارنة الفروع والأقسام وتصدير تقارير فورية.</div>
           </div>
         </div>
       </div>
     </div>
 
     <!-- Bottom Footer -->
-    <div style="position:relative;z-index:2;display:flex;align-items:center;justify-content:space-between;border-top:1px solid #e2e8f0;padding-top:18px;font-size:0.75rem;color:#64748b;">
+    <div style="position:relative;z-index:2;display:flex;align-items:center;justify-content:space-between;border-top:1px solid #cbd5e1;padding-top:18px;font-size:0.75rem;color:#64748b;">
       <div>© 2025 أكاديمية السويدي الفنيه — جميع الحقوق محفوظة</div>
       <div style="display:flex;align-items:center;gap:6px;">
         <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#10b981;box-shadow:0 0 8px rgba(16,185,129,0.5);"></span>
@@ -489,9 +489,9 @@
     </div>
   </div>
 
-  <!-- ── LEFT SIDE: LOGIN FORM (RTL Left) ── -->
-  <div class="login-form-side" style="flex:1;background:#ffffff;display:flex;align-items:center;justify-content:center;padding:48px;position:relative;overflow-y:auto;">
-    <div style="width:100%;max-width:400px;margin:auto;">
+  <!-- ── LEFT SIDE: LOGIN FORM (RTL Left - Clean, High Contrast) ── -->
+  <div class="login-form-side" style="flex:1;background:#f8fafc;display:flex;align-items:center;justify-content:center;padding:48px 32px;position:relative;overflow-y:auto;">
+    <div style="width:100%;max-width:420px;margin:auto;background:#ffffff;padding:40px 36px;border-radius:22px;border:1px solid #e2e8f0;box-shadow:0 12px 36px rgba(15,23,42,0.06);">
       
       <!-- Form Header -->
       <div style="margin-bottom:28px;">
