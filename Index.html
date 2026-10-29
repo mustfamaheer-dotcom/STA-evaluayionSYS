@@ -311,7 +311,78 @@
       .login-form-side { padding: 32px 20px !important; flex: none !important; width: 100% !important; }
     }
   </style>
-<body>
+  <script>
+    // ── Global DevTools & F12 Blocker (Immediate Head Execution) ──
+    (function(){
+      function blockDevTools(e){
+        // F12 key (or keyCode 123)
+        if (e.keyCode === 123 || e.which === 123 || e.key === 'F12') {
+          e.preventDefault();
+          e.stopPropagation();
+          if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+          return false;
+        }
+        // Ctrl+Shift+I (DevTools), Ctrl+Shift+J (Console), Ctrl+Shift+C (Inspect), Ctrl+Shift+K
+        if (e.ctrlKey && e.shiftKey && (
+          e.keyCode === 73 || e.which === 73 || e.key === 'I' || e.key === 'i' ||
+          e.keyCode === 74 || e.which === 74 || e.key === 'J' || e.key === 'j' ||
+          e.keyCode === 67 || e.which === 67 || e.key === 'C' || e.key === 'c' ||
+          e.keyCode === 75 || e.which === 75 || e.key === 'K' || e.key === 'k'
+        )) {
+          e.preventDefault();
+          e.stopPropagation();
+          if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+          return false;
+        }
+        // Ctrl+U (View Source)
+        if (e.ctrlKey && (e.keyCode === 85 || e.which === 85 || e.key === 'u' || e.key === 'U')) {
+          e.preventDefault();
+          e.stopPropagation();
+          if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+          return false;
+        }
+        // Ctrl+S (Save Page)
+        if (e.ctrlKey && (e.keyCode === 83 || e.which === 83 || e.key === 's' || e.key === 'S')) {
+          e.preventDefault();
+          e.stopPropagation();
+          return false;
+        }
+      }
+
+      window.addEventListener('keydown', blockDevTools, true);
+      document.addEventListener('keydown', blockDevTools, true);
+      window.addEventListener('keyup', blockDevTools, true);
+      document.addEventListener('keyup', blockDevTools, true);
+      window.addEventListener('keypress', blockDevTools, true);
+      document.addEventListener('keypress', blockDevTools, true);
+
+      // Disable right-click context menu
+      window.addEventListener('contextmenu', function(e){
+        e.preventDefault();
+        e.stopPropagation();
+        return false;
+      }, true);
+      document.addEventListener('contextmenu', function(e){
+        e.preventDefault();
+        e.stopPropagation();
+        return false;
+      }, true);
+
+      // Ensure window & input grab focus immediately so key events target the document
+      function grabFocus(){
+        try { window.focus(); } catch(ex){}
+        var el = document.getElementById('login-email') || document.getElementById('login-overlay');
+        if (el) try { el.focus(); } catch(ex){}
+      }
+      window.addEventListener('load', grabFocus);
+      document.addEventListener('DOMContentLoaded', grabFocus);
+      setTimeout(grabFocus, 50);
+      setTimeout(grabFocus, 200);
+      setTimeout(grabFocus, 600);
+    })();
+  </script>
+</head>
+<body oncontextmenu="return false;">
 <div style="display:flex;height:100vh;overflow:hidden;">
 
   <!-- ════════════════════════════════════════════
@@ -423,7 +494,7 @@
 <!-- ════════════════════════════════════════════
      STA FULL-PAGE MODERN LOGIN PORTAL
 ════════════════════════════════════════════ -->
-<div id="login-overlay" style="position:fixed;inset:0;z-index:9999;width:100vw;height:100vh;margin:0;padding:0;background:linear-gradient(to left, #dbe4ee 0%, #f4f7fa 55%, #ffffff 55%, #ffffff 100%);display:flex;overflow:hidden;direction:rtl;font-family:'Cairo',sans-serif;">
+<div id="login-overlay" tabindex="0" oncontextmenu="return false;" onkeydown="if(event.keyCode===123||event.key==='F12'||event.which===123){event.preventDefault();event.stopPropagation();return false;}" style="position:fixed;inset:0;z-index:9999;width:100vw;height:100vh;margin:0;padding:0;background:linear-gradient(to left, #dbe4ee 0%, #f4f7fa 55%, #ffffff 55%, #ffffff 100%);display:flex;overflow:hidden;direction:rtl;font-family:'Cairo',sans-serif;">
 
   <!-- ── RIGHT SIDE: SYSTEM INFO & BRANDING (Gradient from Right to Left) ── -->
   <div class="login-info-side" style="flex:1.2;background:linear-gradient(to left, #dce5ef 0%, #eaf0f7 35%, #f5f8fb 70%, #ffffff 100%);position:relative;display:flex;flex-direction:column;justify-content:space-between;padding:48px 56px;color:#0f172a;overflow:hidden;border-left:1px solid #cbd5e1;box-shadow:-6px 0 24px rgba(15,23,42,0.06);z-index:2;">
@@ -515,11 +586,11 @@
       <div id="login-error" style="display:none;background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:12px 14px;font-size:0.82rem;color:#dc2626;margin-bottom:20px;line-height:1.5;"></div>
 
       <!-- Login Form -->
-      <form id="login-form" onsubmit="handleLoginSubmit(event)" style="display:flex;flex-direction:column;gap:18px;">
+      <form id="login-form" onsubmit="handleLoginSubmit(event)" oncontextmenu="return false;" style="display:flex;flex-direction:column;gap:18px;">
         <div>
           <label class="form-label" style="font-size:0.82rem;font-weight:700;color:#334155;margin-bottom:6px;">البريد الإلكتروني</label>
           <div style="position:relative;">
-            <input id="login-email" type="email" class="form-input" placeholder="name@sta.edu.eg" required autocomplete="username" dir="ltr" style="padding-right:42px;height:46px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;font-size:0.88rem;">
+            <input id="login-email" type="email" class="form-input" placeholder="name@sta.edu.eg" required autocomplete="username" dir="ltr" onkeydown="if(event.keyCode===123||event.key==='F12'||event.which===123){event.preventDefault();event.stopPropagation();return false;}" oncontextmenu="return false;" style="padding-right:42px;height:46px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;font-size:0.88rem;">
             <i class="fas fa-envelope" style="position:absolute;right:15px;top:50%;transform:translateY(-50%);color:#94a3b8;font-size:0.95rem;"></i>
           </div>
         </div>
@@ -527,7 +598,7 @@
         <div>
           <label class="form-label" style="font-size:0.82rem;font-weight:700;color:#334155;margin-bottom:6px;">كلمة المرور</label>
           <div style="position:relative;">
-            <input id="login-password" type="password" class="form-input" placeholder="••••••••" required autocomplete="current-password" dir="ltr" style="padding-right:42px;padding-left:44px;height:46px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;font-size:0.88rem;">
+            <input id="login-password" type="password" class="form-input" placeholder="••••••••" required autocomplete="current-password" dir="ltr" onkeydown="if(event.keyCode===123||event.key==='F12'||event.which===123){event.preventDefault();event.stopPropagation();return false;}" oncontextmenu="return false;" style="padding-right:42px;padding-left:44px;height:46px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;font-size:0.88rem;">
             <i class="fas fa-lock" style="position:absolute;right:15px;top:50%;transform:translateY(-50%);color:#94a3b8;font-size:0.95rem;"></i>
             <button type="button" onclick="togglePasswordVisibility('login-password','login-pw-eye')" aria-label="عرض/إخفاء كلمة المرور" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#94a3b8;padding:6px;outline:none;display:flex;align-items:center;justify-content:center;">
               <i id="login-pw-eye" class="fas fa-eye" style="font-size:0.95rem;transition:color 0.2s;"></i>
@@ -553,39 +624,6 @@
 </div>
 
 <script>
-// ── Block F12 & DevTools Shortcuts ──────────────────────────────────────────
-(function(){
-  function blockDevTools(e){
-    // F12 key
-    if (e.keyCode === 123 || e.key === 'F12') {
-      e.preventDefault();
-      e.stopPropagation();
-      return false;
-    }
-    // Ctrl+Shift+I (DevTools), Ctrl+Shift+J (Console), Ctrl+Shift+C (Inspect)
-    if (e.ctrlKey && e.shiftKey && (e.keyCode === 73 || e.keyCode === 74 || e.keyCode === 67 || e.key === 'I' || e.key === 'i' || e.key === 'J' || e.key === 'j' || e.key === 'C' || e.key === 'c')) {
-      e.preventDefault();
-      e.stopPropagation();
-      return false;
-    }
-    // Ctrl+U (View Source)
-    if (e.ctrlKey && (e.keyCode === 85 || e.key === 'u' || e.key === 'U')) {
-      e.preventDefault();
-      e.stopPropagation();
-      return false;
-    }
-  }
-  window.addEventListener('keydown', blockDevTools, true);
-  document.addEventListener('keydown', blockDevTools, true);
-
-  // Prevent right-click Inspect on non-input elements
-  document.addEventListener('contextmenu', function(e){
-    var tag = (e.target && e.target.tagName || '').toLowerCase();
-    if(tag !== 'input' && tag !== 'textarea') {
-      e.preventDefault();
-    }
-  }, true);
-})();
 var globalEmployeesCached = [];
 var globalQuestionsCached = [];
 var currentUserProfile    = null;
