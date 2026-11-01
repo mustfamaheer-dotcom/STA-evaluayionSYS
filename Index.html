@@ -1303,7 +1303,7 @@ function submitBranch(e){
       } else showModal('خطأ',r.error||'خطأ',true);
     })
     .withFailureHandler(function(e){btnState('branch-btn',false,'إضافة الفرع');showModal('خطأ','خطأ: '+esc(e.message||e),true);})
-    .addNewBranchRow({name:name});
+    .addNewBranchRow({name:name}, getAuthToken());
 }
 
 function loadBranchDeptManager(){
@@ -1406,7 +1406,7 @@ function saveBranchEdit(branchId){
     .withFailureHandler(function(e){
       showModal('خطأ في الخادم', 'خطأ: ' + esc(e.message || e), true);
     })
-    .updateBranch(branchId, { name: newName });
+    .updateBranch(branchId, { name: newName }, getAuthToken());
 }
 
 function removeBranchRow(branchId, branchName){
@@ -1425,7 +1425,7 @@ function removeBranchRow(branchId, branchName){
       .withFailureHandler(function(e){
         showModal('خطأ في الخادم', 'خطأ: ' + esc(e.message || e), true);
       })
-      .deleteBranch(branchId);
+      .deleteBranch(branchId, getAuthToken());
   });
 }
 
@@ -1461,7 +1461,7 @@ function addBranchDept(branchId){
       } else showModal('خطأ',r.error||'خطأ',true);
     })
     .withFailureHandler(function(e){showModal('خطأ','خطأ: '+esc(e.message||e),true);})
-    .addBranchDepartment(branchId, sel.value);
+    .addBranchDepartment(branchId, sel.value, getAuthToken());
 }
 
 function removeBranchDept(branchDeptId, branchId){
@@ -1472,7 +1472,7 @@ function removeBranchDept(branchDeptId, branchId){
       else showModal('خطأ',r.error||'خطأ',true);
     })
     .withFailureHandler(function(e){showModal('خطأ','خطأ: '+esc(e.message||e),true);})
-    .removeBranchDepartment(branchDeptId);
+    .removeBranchDepartment(branchDeptId, getAuthToken());
 }
 
 /* ── MANAGER & TEACHER DEPARTMENT ASSIGNMENT MANAGEMENT ─────────────────── */
@@ -1839,7 +1839,7 @@ function submitManagerDeptAssign(mgrId){
       if(btn){ btn.disabled = false; btn.innerHTML = '<i class="fas fa-plus"></i><span>إضافة</span>'; }
       showModal('خطأ في الخادم', 'خطأ: ' + esc(e.message || e), true);
     })
-    .addManagerDepartment(mgrId, deptId, branchId);
+    .addManagerDepartment(mgrId, deptId, branchId, getAuthToken());
 }
 
 function onRemoveManagerDeptClick(el){
@@ -1867,7 +1867,7 @@ function onRemoveManagerDeptClick(el){
       .withFailureHandler(function(e){
         showModal('خطأ في الخادم', 'خطأ: ' + esc(e.message || e), true);
       })
-      .removeManagerDepartment(mgrDeptId, mgrId, deptId, branchId);
+      .removeManagerDepartment(mgrDeptId, mgrId, deptId, branchId, getAuthToken());
   });
 }
 
@@ -1887,7 +1887,7 @@ function removeManagerDeptAssign(mgrDeptId, mgrName, deptName, branchName, mgrId
       .withFailureHandler(function(e){
         showModal('خطأ في الخادم', 'خطأ: ' + esc(e.message || e), true);
       })
-      .removeManagerDepartment(mgrDeptId, mgrId || '', deptId || '', branchId || '');
+      .removeManagerDepartment(mgrDeptId, mgrId || '', deptId || '', branchId || '', getAuthToken());
   });
 }
 
@@ -2187,7 +2187,7 @@ function saveTeacherAssignment(empId){
               teaBadge.style.color = unassignedTeachers > 0 ? '#b45309' : '#059669';
             }
           })
-          .getManagersWithDepartments();
+          .getManagersWithDepartments(getAuthToken());
 
         showModal('تم التعيين بنجاح', 'تم تحديث قسم وفرع المعلم بنجاح. سيتمكن المدراء المسندون لهذا القسم والفرع من تقييمه الآن.');
       } else {
@@ -2201,7 +2201,7 @@ function saveTeacherAssignment(empId){
       }
       showModal('خطأ في الخادم', 'خطأ: ' + esc(e.message || e), true);
     })
-    .updateTeacherDepartmentBranch(empId, deptId, branchId);
+    .updateTeacherDepartmentBranch(empId, deptId, branchId, getAuthToken());
 }
 
 /* ── WEIGHT MANAGEMENT (Super Admin) ──────────────────────────────────── */
@@ -2214,7 +2214,7 @@ function loadWeightManager(){
       var el=document.getElementById('weights-body');
       if(el) el.innerHTML=errBox('خطأ في تحميل الأسئلة: '+esc(e.message||e));
     })
-    .getAllQuestionsWithWeights();
+    .getAllQuestionsWithWeights(getAuthToken());
 }
 
 function renderWeightManager(questions){
@@ -2277,7 +2277,7 @@ function updateSingleWeight(questionId){
       else showModal('خطأ',r.error||'خطأ',true);
     })
     .withFailureHandler(function(e){showModal('خطأ','خطأ: '+esc(e.message||e),true);})
-    .updateQuestionWeight(questionId, val);
+    .updateQuestionWeight(questionId, val, getAuthToken());
 }
 
 function updateCategoryWeightBackend(category){
@@ -2295,7 +2295,7 @@ function updateCategoryWeightBackend(category){
       } else showModal('خطأ',r.error||'خطأ',true);
     })
     .withFailureHandler(function(e){showModal('خطأ','خطأ: '+esc(e.message||e),true);})
-    .updateCategoryWeight(category, val);
+    .updateCategoryWeight(category, val, getAuthToken());
 }
 
 function deleteQuestionUI(questionId, preview){
@@ -2318,7 +2318,7 @@ function deleteQuestionUI(questionId, preview){
         showModal('خطأ','خطأ: '+esc(e.message||e),true);
         if(btn){ btn.disabled=false; btn.innerHTML='<i class="fas fa-trash" style="font-size:0.65rem;"></i>'; }
       })
-      .deleteQuestion(questionId);
+      .deleteQuestion(questionId, getAuthToken());
   });
 }
 
@@ -3983,6 +3983,11 @@ function submitInstructor(e){
 function submitManager(e){
   e.preventDefault();
   btnState('mgr-btn',true,'جاري منح الصلاحية...');
+  var mName = document.getElementById('mgr-name').value.trim();
+  var mEmail = document.getElementById('mgr-email').value.trim();
+  var mRole = v('mgr-role');
+  var tok = getAuthToken();
+  var cEmail = getAuthEmail();
   google.script.run
     .withSuccessHandler(function(res){
       btnState('mgr-btn',false,'منح الصلاحية');
@@ -3990,7 +3995,14 @@ function submitManager(e){
       else showModal('فشل',(res&&res.error)||'خطأ.',true);
     })
     .withFailureHandler(function(err){btnState('mgr-btn',false,'منح الصلاحية');showModal('خطأ',err.message||err,true);})
-    .addNewManagerRow({name:document.getElementById('mgr-name').value.trim(),email:document.getElementById('mgr-email').value.trim(),role:v('mgr-role')}, getAuthToken());
+    .addNewManagerRow({
+      name: mName,
+      email: mEmail,
+      role: mRole,
+      authToken: tok,
+      callerEmail: cEmail,
+      userEmail: cEmail
+    }, tok);
 }
 
 function submitAdminResetPassword(e){

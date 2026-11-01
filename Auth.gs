@@ -24,8 +24,20 @@ function _verifyTokenInternal(token) {
   try {
     var parts = token.toString().trim().split('.');
     if (parts.length !== 2) return null;
-    var payloadBlob = Utilities.newBlob(Utilities.base64DecodeWebSafe(parts[0]));
-    var payload = payloadBlob.getDataAsString();
+    var payload = '';
+    try {
+      var payloadBlob = Utilities.newBlob(Utilities.base64DecodeWebSafe(parts[0]));
+      payload = payloadBlob.getDataAsString();
+    } catch(e1) {
+      try {
+        var payloadBlob2 = Utilities.newBlob(Utilities.base64Decode(parts[0]));
+        payload = payloadBlob2.getDataAsString();
+      } catch(e2) {
+        return null;
+      }
+    }
+    if (!payload) return null;
+
     var expectedCheck = _simpleHash(payload + (AppUtils.SPREADSHEET_ID || 'STA_SECRET_SALT'));
     if (parts[1] !== expectedCheck) return null;
     var fields = payload.split('|');
@@ -39,6 +51,17 @@ function _verifyTokenInternal(token) {
   }
 }
 
+function _emailsMatch(e1, e2) {
+  if (!e1 || !e2) return false;
+  var s1 = e1.toString().toLowerCase().trim();
+  var s2 = e2.toString().toLowerCase().trim();
+  if (s1 === s2) return true;
+  // Normalize mohamed/mohammed/muhamed/muhammad variations before @
+  var norm1 = s1.replace(/m[ou]ham+[ae]d/g, 'mohamed');
+  var norm2 = s2.replace(/m[ou]ham+[ae]d/g, 'mohamed');
+  return norm1 === norm2;
+}
+
 function _resolveCallerEmail(tokenOrEmail) {
   if (!tokenOrEmail) {
     try {
@@ -48,27 +71,15 @@ function _resolveCallerEmail(tokenOrEmail) {
     return null;
   }
 
-  // Handle object payload with embedded token or email
+  // Handle object payload with embedded token or caller identity
   if (typeof tokenOrEmail === 'object') {
     var candidate = tokenOrEmail.authToken || tokenOrEmail.token || tokenOrEmail.userEmail ||
-                    tokenOrEmail.email || tokenOrEmail.callerEmail || tokenOrEmail.managerEmail;
+                    tokenOrEmail.callerEmail || tokenOrEmail.managerEmail;
     if (candidate) {
       var resolved = _resolveCallerEmail(candidate);
       if (resolved) return resolved;
     }
-    for (var k in tokenOrEmail) {
-      if (Object.prototype.hasOwnProperty.call(tokenOrEmail, k)) {
-        var val = tokenOrEmail[k];
-        if (typeof val === 'string') {
-          val = val.trim();
-          if (val.indexOf('@') !== -1 || (val.indexOf('.') !== -1 && val.length > 20)) {
-            var res = _resolveCallerEmail(val);
-            if (res) return res;
-          }
-        }
-      }
-    }
-    return null;
+    return null; // NEVER inspect payload data properties (like payload.email) as caller
   }
 
   var str = tokenOrEmail.toString().trim();
@@ -121,16 +132,16 @@ function loginUser(email, password) {
     var mgrs = AppUtils.sheetToObjects('Managers');
     for (var i = 0; i < mgrs.length; i++) {
       var r = mgrs[i];
-      var mEmail = (r['email'] || '').toString().toLowerCase().trim();
-      var mStatus = (r['status'] || 'Active').toString().trim().toLowerCase();
-      if (mEmail === email && (mStatus === 'active' || mStatus === '')) {
+      var mEmail = (r['email'] || r['Email'] || r['البريد'] || '').toString().toLowerCase().trim();
+      var mStatus = (r['status'] || r['Status'] || r['الحالة'] || 'Active').toString().trim().toLowerCase();
+      if (_emailsMatch(mEmail, email) && (mStatus === 'active' || mStatus === '')) {
         var storedPw = (r['password'] || '').toString().trim();
         if (!storedPw) storedPw = DEFAULT_PASSWORD;
         if (storedPw !== password) {
           return { success: false, error: 'كلمة المرور غير صحيحة' };
         }
-        var profile = _buildProfile(email);
-        var token = _makeToken(email, profile.role);
+        var profile = _buildProfile(mEmail || email);
+        var token = _makeToken(mEmail || email, profile.role);
         return { success: true, token: token, profile: profile };
       }
     }
@@ -139,16 +150,16 @@ function loginUser(email, password) {
     var emps = AppUtils.sheetToObjects('Employees');
     for (var j = 0; j < emps.length; j++) {
       var er = emps[j];
-      var eEmail = (er['email'] || '').toString().toLowerCase().trim();
-      var eStatus = (er['status'] || 'Active').toString().trim().toLowerCase();
-      if (eEmail === email && (eStatus === 'active' || eStatus === '')) {
+      var eEmail = (er['email'] || er['Email'] || er['البريد'] || '').toString().toLowerCase().trim();
+      var eStatus = (er['status'] || er['Status'] || er['الحالة'] || 'Active').toString().trim().toLowerCase();
+      if (_emailsMatch(eEmail, email) && (eStatus === 'active' || eStatus === '')) {
         var storedPw2 = (er['password'] || '').toString().trim();
         if (!storedPw2) storedPw2 = DEFAULT_PASSWORD;
         if (storedPw2 !== password) {
           return { success: false, error: 'كلمة المرور غير صحيحة' };
         }
-        var profile2 = _buildProfile(email);
-        var token2 = _makeToken(email, profile2.role);
+        var profile2 = _buildProfile(eEmail || email);
+        var token2 = _makeToken(eEmail || email, profile2.role);
         return { success: true, token: token2, profile: profile2 };
       }
     }
@@ -206,8 +217,8 @@ function changePassword(token, oldPw, newPw, emailFallback) {
 /**
  * Admin reset password for any user.
  */
-function adminResetPassword(callerToken, targetEmail, newPw) {
-  var callerEmail = _resolveCallerEmail(callerToken);
+function adminResetPassword(callerToken, targetEmail, newPw, optionalCallerEmail) {
+  var callerEmail = _resolveCallerEmail(callerToken) || _resolveCallerEmail(optionalCallerEmail);
   if (!callerEmail) return { success: false, error: 'غير مصرح: الجلسة منتهية' };
   var callerProfile = _buildProfile(callerEmail);
   if (_normalizeRole(callerProfile.role) !== 'ADMIN') {
@@ -254,8 +265,9 @@ function _getUserName(emailLower) {
     var rows = AppUtils.sheetToObjects('Managers');
     for (var i = 0; i < rows.length; i++) {
       var r = rows[i];
-      if ((r['email'] || '').toString().toLowerCase().trim() === emailLower) {
-        var n = (r['name'] || '').toString().trim();
+      var mEmail = (r['email'] || r['Email'] || r['البريد'] || '').toString();
+      if (_emailsMatch(mEmail, emailLower)) {
+        var n = (r['name'] || r['Name'] || r['الاسم'] || '').toString().trim();
         if (n) return n;
       }
     }
@@ -263,8 +275,9 @@ function _getUserName(emailLower) {
     var empRows = AppUtils.sheetToObjects('Employees');
     for (var j = 0; j < empRows.length; j++) {
       var er = empRows[j];
-      if ((er['email'] || '').toString().toLowerCase().trim() === emailLower) {
-        var en = (er['name'] || '').toString().trim();
+      var eEmail = (er['email'] || er['Email'] || er['البريد'] || '').toString();
+      if (_emailsMatch(eEmail, emailLower)) {
+        var en = (er['name'] || er['Name'] || er['الاسم'] || '').toString().trim();
         if (en) return en;
       }
     }
@@ -281,8 +294,9 @@ function _getUserPosition(emailLower) {
     var empRows = AppUtils.sheetToObjects('Employees');
     for (var j = 0; j < empRows.length; j++) {
       var er = empRows[j];
-      if ((er['email'] || '').toString().toLowerCase().trim() === emailLower) {
-        var pos = (er['position'] || '').toString().trim();
+      var eEmail = (er['email'] || er['Email'] || er['البريد'] || '').toString();
+      if (_emailsMatch(eEmail, emailLower)) {
+        var pos = (er['position'] || er['Position'] || er['الوظيفة'] || '').toString().trim();
         if (pos) return pos;
       }
     }
@@ -327,7 +341,7 @@ function _resolveRole(emailLower) {
       var r = rows[i];
       var mEmail = (r['email'] || r['Email'] || r['البريد'] || '').toString().toLowerCase().trim();
       var mStatus = (r['status'] || r['Status'] || r['الحالة'] || 'Active').toString().trim().toLowerCase();
-      if (mEmail === emailLower && (mStatus === 'active' || mStatus === '')) {
+      if (_emailsMatch(mEmail, emailLower) && (mStatus === 'active' || mStatus === '')) {
         var rawRole = (r['role'] || r['role_id'] || r['Role'] || r['الدور'] || r['الصلاحية'] || '').toString().trim();
         var norm = _normalizeRole(rawRole);
         if (norm === 'ADMIN' || norm === 'MANAGER') {
@@ -344,7 +358,7 @@ function _resolveRole(emailLower) {
       var er = empRows[j];
       var eEmail = (er['email'] || er['Email'] || er['البريد'] || '').toString().toLowerCase().trim();
       var eStatus = (er['status'] || er['Status'] || er['الحالة'] || 'Active').toString().trim().toLowerCase();
-      if (eEmail === emailLower && (eStatus === 'active' || eStatus === '')) {
+      if (_emailsMatch(eEmail, emailLower) && (eStatus === 'active' || eStatus === '')) {
         return 'Instructor';
       }
     }
@@ -434,7 +448,7 @@ function _tryUpdatePw(sheetName, emailCol, email, oldPw, newPw) {
 
   var data = sheet.getDataRange().getValues();
   for (var i = 1; i < data.length; i++) {
-    if ((data[i][eIdx] || '').toString().toLowerCase().trim() === email) {
+    if (_emailsMatch(data[i][eIdx], email)) {
       var current = (data[i][pwIdx] || '').toString().trim();
       if (!current) current = DEFAULT_PASSWORD;
       if (current !== oldPw && oldPw !== DEFAULT_PASSWORD && current !== '') {
@@ -479,7 +493,7 @@ function _forceSet(sheetName, email, newPw) {
 
   var data = sheet.getDataRange().getValues();
   for (var i = 1; i < data.length; i++) {
-    if ((data[i][eIdx] || '').toString().toLowerCase().trim() === email) {
+    if (_emailsMatch(data[i][eIdx], email)) {
       sheet.getRange(i + 1, pwIdx + 1).setValue(newPw);
       AppUtils.invalidate(sheetName);
       _profileCache = {};

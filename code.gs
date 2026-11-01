@@ -275,7 +275,7 @@ function _extractCallerEmail() {
 
 function addRow(tableName, payload, optionalToken) {
   try {
-    var callerEmail = _extractCallerEmail(optionalToken, payload);
+    var callerEmail = _extractCallerEmail(optionalToken, payload && (payload.authToken || payload.callerEmail || payload.userEmail));
     PermissionGuard.require(callerEmail, 'canManageSystem');
 
     var ss    = AppUtils.getDB();
@@ -619,7 +619,7 @@ function addBranchDepartment(branchId, departmentId, optionalToken) {
       return { success: false, error: 'هذا القسم مضاف بالفعل لهذا الفرع' };
     }
   }
-  return addRow('BranchDepartments', { branch_id: branchId, department_id: departmentId });
+  return addRow('BranchDepartments', { branch_id: branchId, department_id: departmentId }, optionalToken || callerEmail);
 }
 
 function removeBranchDepartment(branchDeptId, optionalToken) {
@@ -721,7 +721,7 @@ function addManagerDepartment(managerId, departmentId, branchId, optionalToken) 
     department_id: dId,
     branch_id: bId,
     status: 'Active'
-  });
+  }, optionalToken || callerEmail);
 }
 
 /**
@@ -814,7 +814,7 @@ function getTeachersForCurrentManager(optionalToken) {
   for (var mi = 0; mi < mgrRows.length; mi++) {
     var mEmail = (mgrRows[mi]['email'] || '').toString().toLowerCase().trim();
     var mst = (mgrRows[mi]['status'] || 'Active').toString().trim().toLowerCase();
-    if (mEmail === callerEmail.toLowerCase().trim() && (mst === 'active' || mst === '')) {
+    if (_emailsMatch(mEmail, callerEmail) && (mst === 'active' || mst === '')) {
       currentMgrId = (mgrRows[mi]['manager_id'] || '').toString().trim();
       break;
     }
@@ -1299,7 +1299,7 @@ function deleteQuestion(questionId, optionalToken) {
 
 function addManager(p, optionalToken) {
   try {
-    var callerEmail = _extractCallerEmail(optionalToken, p);
+    var callerEmail = _extractCallerEmail(optionalToken, p && (p.authToken || p.callerEmail || p.userEmail));
     PermissionGuard.require(callerEmail, 'canManageSystem');
 
     var name = (p.name || '').toString().trim();
@@ -1315,7 +1315,7 @@ function addManager(p, optionalToken) {
 
     var data = sheet.getDataRange().getValues();
     if (data.length <= 1) {
-      var res = addRow('Managers', { name: name, email: email, role: role });
+      var res = addRow('Managers', { name: name, email: email, role: role }, optionalToken || callerEmail);
       _profileCache = {};
       return res;
     }
@@ -1330,7 +1330,7 @@ function addManager(p, optionalToken) {
     var foundRowIndex = -1;
     for (var i = 1; i < data.length; i++) {
       var rowEmail = (data[i][emailIdx] || '').toString().toLowerCase().trim();
-      if (rowEmail === email) {
+      if (_emailsMatch(rowEmail, email)) {
         foundRowIndex = i + 1; // 1-based row index in sheet
         break;
       }
@@ -1357,7 +1357,7 @@ function addManager(p, optionalToken) {
         name: name,
         email: email,
         role: role
-      });
+      }, optionalToken || callerEmail);
       _profileCache = {};
       return res;
     }
