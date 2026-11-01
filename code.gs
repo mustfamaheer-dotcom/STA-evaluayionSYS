@@ -357,8 +357,36 @@ function addInstructor(p, optionalToken) {
   return addRow('Employees', row, optionalToken);
 }
 
-function getBranches() {
-  return getActiveRows('Branches');
+function getBranches(optionalToken) {
+  try {
+    var rows = getActiveRows('Branches');
+    if (rows && rows.length > 0) return rows;
+  } catch (e) {
+    console.error('getBranches error: ' + e);
+  }
+
+  // Fallback: extract distinct active branches from Employees sheet
+  try {
+    var emps = getActiveRows('Employees');
+    var seen = {};
+    var fallback = [];
+    for (var i = 0; i < emps.length; i++) {
+      var bName = (emps[i]['school_branch'] || '').toString().trim();
+      var bId = (emps[i]['branch_id'] || '').toString().trim() || bName;
+      if (bName && !seen[bName.toLowerCase()]) {
+        seen[bName.toLowerCase()] = true;
+        fallback.push({
+          branch_id: bId,
+          branch_name: bName,
+          status: 'Active'
+        });
+      }
+    }
+    if (fallback.length > 0) return fallback;
+  } catch (e2) {
+    console.error('Fallback getBranches error: ' + e2);
+  }
+  return [];
 }
 
 function addNewBranchRow(p, optionalToken) {
@@ -846,56 +874,94 @@ function getTeachersForCurrentManager(optionalToken) {
  */
 function getEvaluationFormData(optionalToken) {
   var callerEmail = _extractCallerEmail(optionalToken);
-  PermissionGuard.require(callerEmail, 'canEvaluate');
-
-  // 1. Branches directly from the Branches sheet
-  var branchRows = getActiveRows('Branches');
-  var branches = branchRows.map(function(b) {
-    var bId = (b['branch_id'] || '').toString().trim();
-    var bName = (b['branch_name'] || b['name'] || '').toString().trim();
-    if (!bId) bId = bName;
-    return {
-      id: bId,
-      name: bName
-    };
-  }).filter(function(b) {
-    return b.name !== '';
-  });
-
-  // 2. Departments directly from the Departments sheet
-  var deptRows = getActiveRows('Departments');
-  var depts = deptRows.map(function(d) {
-    var dId = (d['department_id'] || '').toString().trim();
-    var dName = (d['department_name'] || d['name'] || '').toString().trim();
-    if (!dId) dId = dName;
-    return {
-      id: dId,
-      name: dName
-    };
-  }).filter(function(d) {
-    return d.name !== '';
-  });
-
-  // 3. BranchDepartments mapping
-  var bdRows = getActiveRows('BranchDepartments');
-  var branchDeptMap = {};
-  for (var i = 0; i < bdRows.length; i++) {
-    var bId = (bdRows[i]['branch_id'] || '').toString().trim();
-    var dId = (bdRows[i]['department_id'] || '').toString().trim();
-    if (bId && dId) {
-      if (!branchDeptMap[bId]) branchDeptMap[bId] = {};
-      branchDeptMap[bId][dId] = true;
+  if (callerEmail) {
+    try {
+      PermissionGuard.require(callerEmail, 'canEvaluate');
+    } catch (permErr) {
+      // Check if user has canViewDashboard or is Admin/Manager before blocking
+      try {
+        var p = _buildProfile(callerEmail);
+        if (!p.permissions.includes('canEvaluate') && !p.permissions.includes('canViewDashboard')) {
+          throw permErr;
+        }
+      } catch(eCheck) {
+        throw permErr;
+      }
     }
   }
 
-  // 4. Teachers for current manager
-  var teachers = getTeachersForCurrentManager();
+  // 1. Branches directly from the Branches sheet (with fallback)
+  var branches = [];
+  try {
+    var branchRows = getBranches(optionalToken);
+    branches = (branchRows || []).map(function(b) {
+      var bId = (b['branch_id'] || '').toString().trim();
+      var bName = (b['branch_name'] || b['name'] || '').toString().trim();
+      if (!bId) bId = bName;
+      return {
+        id: bId,
+        name: bName
+      };
+    }).filter(function(b) {
+      return b.name !== '';
+    });
+  } catch (errB) {
+    console.error('Error fetching branches in getEvaluationFormData: ' + errB);
+  }
+
+  // 2. Departments directly from the Departments sheet
+  var depts = [];
+  try {
+    var deptRows = getActiveRows('Departments');
+    depts = (deptRows || []).map(function(d) {
+      var dId = (d['department_id'] || '').toString().trim();
+      var dName = (d['department_name'] || d['name'] || '').toString().trim();
+      if (!dId) dId = dName;
+      return {
+        id: dId,
+        name: dName
+      };
+    }).filter(function(d) {
+      return d.name !== '';
+    });
+  } catch (errD) {
+    console.error('Error fetching departments in getEvaluationFormData: ' + errD);
+  }
+
+  // 3. BranchDepartments mapping
+  var branchDeptMap = {};
+  try {
+    var bdRows = getActiveRows('BranchDepartments');
+    for (var i = 0; i < bdRows.length; i++) {
+      var bId = (bdRows[i]['branch_id'] || '').toString().trim();
+      var dId = (bdRows[i]['department_id'] || '').toString().trim();
+      if (bId && dId) {
+        if (!branchDeptMap[bId]) branchDeptMap[bId] = {};
+        branchDeptMap[bId][dId] = true;
+      }
+    }
+  } catch (errBd) {
+    console.error('Error fetching branchDeptMap in getEvaluationFormData: ' + errBd);
+  }
+
+  // 4. Teachers for current manager (pass token/callerEmail)
+  var teachers = [];
+  try {
+    teachers = getTeachersForCurrentManager(optionalToken || callerEmail);
+  } catch (errT) {
+    console.error('getTeachersForCurrentManager error: ' + errT);
+    try {
+      teachers = getTeachers();
+    } catch(errT2) {
+      console.error('getTeachers error: ' + errT2);
+    }
+  }
 
   return {
     branches: branches,
     departments: depts,
     branchDeptMap: branchDeptMap,
-    teachers: teachers
+    teachers: teachers || []
   };
 }
 

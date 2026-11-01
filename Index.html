@@ -833,6 +833,10 @@ function boot(profile){
   }
   showModal('مرحباً بك، ' + esc(displayName), 'مرحباً بك في نظام تقييم المعلمين - أكاديمية السويدي الفنيه.');
   var p=profile.permissions||[], h='';
+  var roleStr = (profile.role || '').toString().trim();
+  var isManager = (roleStr === 'مدير' || roleStr === 'مدير النظام' || roleStr.indexOf('مدير') !== -1 || roleStr.toUpperCase() === 'ADMIN' || roleStr.toUpperCase() === 'MANAGER' || p.includes('canViewDashboard'));
+  var isInstructor = (roleStr === 'معلم' || roleStr === 'مدرب' || roleStr.toUpperCase() === 'INSTRUCTOR' || roleStr.toUpperCase() === 'TEACHER');
+
   if(p.includes('canViewDashboard')){
     h+=navItem('dashboard','fa-chart-bar','لوحة التحكم');
     h+=navItem('data-analytics','fa-chart-line','تحليلات البيانات');
@@ -840,9 +844,11 @@ function boot(profile){
   if(p.includes('canEvaluate')){
     h+=navItem('evaluate','fa-clipboard-check','اجراء ملاحظه صَفِّيَّة للمعلم');
   }
-  if(p.includes('canViewOwnDashboard'))
+  // "تقييماتي" is only for teachers/instructors — never for managers (مدير / مدير النظام)
+  if(!isManager && (isInstructor || (p.includes('canViewOwnDashboard') && !p.includes('canViewDashboard')))){
     h+=navItem('my-evaluations','fa-user-clock','تقييماتي');
-  if(p.includes('canViewDashboard')||p.includes('canViewOwnDashboard')){
+  }
+  if(p.includes('canViewDashboard')||(!isManager && p.includes('canViewOwnDashboard'))){
     h+=navItem('eval-details','fa-file-alt','تفاصيل التقييم');
   }
   if(p.includes('canAddInstructor')||p.includes('canManageSystem')){
@@ -867,7 +873,7 @@ function boot(profile){
   var navEl=document.getElementById('sidebar-menu');
   if(navEl) navEl.innerHTML=h;
   if(p.includes('canViewDashboard')) loadModule('dashboard');
-  else if(p.includes('canViewOwnDashboard')) loadModule('my-evaluations');
+  else if(p.includes('canViewOwnDashboard') && !isManager) loadModule('my-evaluations');
   else if(p.includes('canEvaluate')) loadModule('evaluate');
   else setContent('<div style="text-align:center;padding:60px;"><i class="fas fa-exclamation-circle" style="font-size:2rem;color:#BDBDBD;display:block;margin-bottom:16px;"></i><p style="color:#9E9E9E;">ليس لديك صلاحيات كافية.</p></div>');
 }
@@ -1304,6 +1310,7 @@ function loadBranchDeptManager(){
   var el=document.getElementById('branch-dept-mgr');
   if(!el) return;
   el.innerHTML='<div style="text-align:center;padding:20px;"><i class="fas fa-spinner fa-spin" style="color:var(--sta-red);"></i></div>';
+  var tok = getAuthToken();
   google.script.run
     .withSuccessHandler(function(branches){
       google.script.run
@@ -1314,7 +1321,7 @@ function loadBranchDeptManager(){
         .getDepartments();
     })
     .withFailureHandler(function(e){el.innerHTML=errBox('خطأ: '+esc(e.message||e));})
-    .getBranches();
+    .getBranches(tok);
 }
 
 function renderBranchDeptManager(branches, allDepts){
@@ -1488,15 +1495,17 @@ function loadManagerDeptAssignPage(){
     }
   }
 
+  var tok = getAuthToken();
+
   google.script.run
     .withSuccessHandler(function(data){ _mdaManagers = data || []; _loaded.managers = true; _tryRender(); })
     .withFailureHandler(function(e){ if(body) body.innerHTML = errBox('خطأ في تحميل المديرين: ' + esc(e.message||e)); })
-    .getManagersWithDepartments();
+    .getManagersWithDepartments(tok);
 
   google.script.run
     .withSuccessHandler(function(data){ _mdaBranches = data || []; _loaded.branches = true; _tryRender(); })
     .withFailureHandler(function(e){ if(body) body.innerHTML = errBox('خطأ في تحميل الفروع: ' + esc(e.message||e)); })
-    .getBranches();
+    .getBranches(tok);
 
   google.script.run
     .withSuccessHandler(function(data){ _mdaDepts = data || []; _loaded.depts = true; _tryRender(); })
@@ -1511,7 +1520,7 @@ function loadManagerDeptAssignPage(){
   google.script.run
     .withSuccessHandler(function(data){ _mdaTeachers = data || []; _loaded.teachers = true; _tryRender(); })
     .withFailureHandler(function(e){ if(body) body.innerHTML = errBox('خطأ في تحميل المعلمين: ' + esc(e.message||e)); })
-    .getAllTeachersForAssignment();
+    .getAllTeachersForAssignment(tok);
 }
 
 function renderManagerDeptAssignPage(){
@@ -2791,14 +2800,15 @@ var _catBranches = [];
 function initCatInsightWidget(){
   var _cLoaded={teachers:false,branches:false};
   function _cTry(){if(_cLoaded.teachers&&_cLoaded.branches) renderCatInsightWidget();}
+  var tok = getAuthToken();
   google.script.run
     .withSuccessHandler(function(teachers){ _catTeachers=teachers||[]; _cLoaded.teachers=true; _cTry(); })
     .withFailureHandler(function(){var el=document.getElementById('cat-insight-body');if(el) el.innerHTML='<div style="text-align:center;padding:30px;color:#BDBDBD;font-size:0.82rem;">خطأ في تحميل البيانات</div>';})
-    .getTeachers();
+    .getTeachers(tok);
   google.script.run
     .withSuccessHandler(function(rows){ _catBranches=rows||[]; _cLoaded.branches=true; _cTry(); })
     .withFailureHandler(function(){var el=document.getElementById('cat-insight-body');if(el) el.innerHTML='<div style="text-align:center;padding:30px;color:#BDBDBD;font-size:0.82rem;">خطأ في تحميل البيانات</div>';})
-    .getBranches();
+    .getBranches(tok);
 }
 
 function renderCatInsightWidget(){
@@ -3188,19 +3198,22 @@ function renderEvalForm(){
   loadTeacherAndGradeDropdowns();
 }
 
-function loadTeacherAndGradeDropdowns(){
+function loadTeacherAndGradeDropdowns(retryCount){
+  retryCount = retryCount || 0;
   var branchSel = document.getElementById('basic-branch');
   var deptSel   = document.getElementById('basic-dept');
   var nameSel   = document.getElementById('basic-name');
 
-  if(branchSel) branchSel.innerHTML = '<option value="">جاري تحميل الفروع من جدول الفروع...</option>';
-  if(deptSel){ deptSel.innerHTML = '<option value="">— اختر الفرع أولاً —</option>'; deptSel.disabled = true; }
-  if(nameSel){ nameSel.innerHTML = '<option value="">— اختر القسم أولاً —</option>'; nameSel.disabled = true; }
+  if(branchSel && !branchSel.value) branchSel.innerHTML = '<option value="">جاري تحميل الفروع...</option>';
+  if(deptSel && !deptSel.value){ deptSel.innerHTML = '<option value="">— اختر الفرع أولاً —</option>'; deptSel.disabled = true; }
+  if(nameSel && !nameSel.value){ nameSel.innerHTML = '<option value="">— اختر القسم أولاً —</option>'; nameSel.disabled = true; }
 
   var specEl = document.getElementById('basic-spec');
   var schoolEl = document.getElementById('basic-school');
   if(specEl) specEl.value = '';
   if(schoolEl) schoolEl.value = '';
+
+  var tok = getAuthToken();
 
   google.script.run
     .withSuccessHandler(function(data){
@@ -3213,8 +3226,8 @@ function loadTeacherAndGradeDropdowns(){
       if(existingWarning && existingWarning.parentNode) existingWarning.parentNode.removeChild(existingWarning);
 
       if(!data || !data.branches || !data.branches.length){
-        branchSel.innerHTML = '<option value="">— لا توجد فروع مسجلة في جدول الفروع —</option>';
-        branchSel.disabled = true;
+        branchSel.innerHTML = '<option value="">— لا توجد فروع مسجلة —</option>';
+        branchSel.disabled = false;
         return;
       }
 
@@ -3248,10 +3261,35 @@ function loadTeacherAndGradeDropdowns(){
       }
     })
     .withFailureHandler(function(e){
+      console.error('Error loading evaluation form data:', e);
+      if(retryCount < 2){
+        setTimeout(function(){
+          loadTeacherAndGradeDropdowns(retryCount + 1);
+        }, 1200);
+        return;
+      }
       var branchSel = document.getElementById('basic-branch');
-      if(branchSel) branchSel.innerHTML = '<option value="">خطأ في تحميل الفروع: ' + esc(e.message || e) + '</option>';
+      if(branchSel){
+        branchSel.disabled = false;
+        branchSel.innerHTML = '<option value="">خطأ في تحميل الفروع (اضغط لإعادة المحاولة)</option>';
+        branchSel.onchange = function(){
+          if(!branchSel.value) loadTeacherAndGradeDropdowns(0);
+        };
+      }
+      var existingWarning = document.getElementById('mgr-no-teachers-alert');
+      if(!existingWarning){
+        var container = document.querySelector('.glass-form-body');
+        if(container){
+          var errDiv = document.createElement('div');
+          errDiv.id = 'mgr-no-teachers-alert';
+          errDiv.style.cssText = 'margin-bottom:16px;padding:12px 16px;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.25);border-radius:10px;color:#dc2626;font-size:0.85rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;';
+          errDiv.innerHTML = '<span><i class="fas fa-exclamation-triangle" style="margin-left:8px;"></i>حدث خطأ في تحميل الفروع: ' + esc(e.message || e) + '</span>'
+            + '<button type="button" onclick="loadTeacherAndGradeDropdowns(0)" class="btn-primary" style="padding:6px 14px;font-size:0.78rem;width:auto;">إعادة المحاولة</button>';
+          container.insertBefore(errDiv, container.firstChild);
+        }
+      }
     })
-    .getEvaluationFormData();
+    .getEvaluationFormData(tok);
 }
 
 /* ── Evaluation form interactions ────────────────────────────────────────── */

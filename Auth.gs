@@ -380,11 +380,11 @@ function _resolvePermissions(role) {
 
   // Ensure baseline guaranteed permissions
   if (norm === 'ADMIN') {
-    ['canViewDashboard', 'canEvaluate', 'canAddInstructor', 'canManageSystem', 'canViewOwnDashboard'].forEach(function(p){
+    ['canViewDashboard', 'canEvaluate', 'canAddInstructor', 'canManageSystem'].forEach(function(p){
       if (permissions.indexOf(p) === -1) permissions.push(p);
     });
   } else if (norm === 'MANAGER') {
-    ['canViewDashboard', 'canEvaluate', 'canViewOwnDashboard'].forEach(function(p){
+    ['canViewDashboard', 'canEvaluate'].forEach(function(p){
       if (permissions.indexOf(p) === -1) permissions.push(p);
     });
   } else {
