@@ -152,6 +152,25 @@ function getTeachers() {
     }
   }
 
+  // Known standard branch mappings as fallback
+  var standardBranchNameToId = {
+    'sta-1': 'brn-9lq1z',
+    'sta-2': 'brn-rx0g2',
+    'sta3 - el-sadat': 'brn-8hb7q',
+    'zohr - portsaid': 'brn-7si8d',
+    'new-damietta': 'brn-7ha75',
+    'new el-alamein': 'brn-6si5d',
+    'ain-sokhna school': 'brn-pp8e6',
+    "coc's - belbeis": 'brn-579f9',
+    "coc's - maghagha": 'brn-3xhyn',
+    'm8-gets': 'brn-31t71',
+    'shubra hospitality school': 'brn-d5gj5'
+  };
+  for (var sKey in standardBranchNameToId) {
+    if (!branchNameToId[sKey]) branchNameToId[sKey] = standardBranchNameToId[sKey];
+    if (!branchMap[standardBranchNameToId[sKey]]) branchMap[standardBranchNameToId[sKey]] = AppUtils.normalizeSchool(sKey);
+  }
+
   // Pre-mapped standard department IDs by keyword / position
   var positionToDeptId = {
     'arabic': 'dept-d5mia', 'عرب': 'dept-d5mia',
@@ -177,50 +196,64 @@ function getTeachers() {
   };
 
   return rows.map(function(r) {
-    var did = (r['department_id'] || '').toString().trim();
-    var bid = (r['branch_id'] || '').toString().trim();
-    var schoolBranch = (r['school_branch'] || '').toString().trim();
-    var pos = (r['position'] || '').toString().trim();
+    var did       = (r['department_id']  || '').toString().trim();
+    var bid       = (r['branch_id']      || '').toString().trim();
+    var schoolTxt = (r['school_branch']  || '').toString().trim();
+    var pos       = (r['position']       || '').toString().trim();
 
-    // Fallback: resolve branchId from school_branch
-    if (!bid && schoolBranch) {
-      var normSchool = AppUtils.normalizeSchool(schoolBranch);
-      if (branchNameToId[schoolBranch.toLowerCase()]) {
-        bid = branchNameToId[schoolBranch.toLowerCase()];
+    // ── Resolve branchId: must be a real brn-xxx ID ──────────────────────
+    var resolvedBid = '';
+    if (bid && bid.indexOf('brn-') === 0) {
+      resolvedBid = bid;
+    } else if (bid && branchNameToId[bid.toLowerCase()]) {
+      resolvedBid = branchNameToId[bid.toLowerCase()];
+    } else if (bid) {
+      var normB = AppUtils.normalizeSchool(bid);
+      if (normB && branchNameToId[normB.toLowerCase()]) resolvedBid = branchNameToId[normB.toLowerCase()];
+    }
+
+    if (!resolvedBid && schoolTxt) {
+      var normSchool = AppUtils.normalizeSchool(schoolTxt);
+      if (branchNameToId[schoolTxt.toLowerCase()]) {
+        resolvedBid = branchNameToId[schoolTxt.toLowerCase()];
       } else if (normSchool && branchNameToId[normSchool.toLowerCase()]) {
-        bid = branchNameToId[normSchool.toLowerCase()];
+        resolvedBid = branchNameToId[normSchool.toLowerCase()];
       }
     }
 
-    // Fallback: resolve deptId from dept name or position
-    if (!did || !deptMap[did]) {
-      if (did && deptNameToId[did.toLowerCase()]) {
-        did = deptNameToId[did.toLowerCase()];
-      } else if (pos) {
-        var posLower = pos.toLowerCase();
-        for (var pKey in positionToDeptId) {
-          if (posLower.indexOf(pKey) !== -1) {
-            did = positionToDeptId[pKey];
-            break;
-          }
+    // ── Resolve deptId: must be a real dept-xxx ID ───────────────────────
+    var resolvedDid = '';
+    if (did && did.indexOf('dept-') === 0) {
+      resolvedDid = did;
+    } else if (did && deptNameToId[did.toLowerCase()]) {
+      resolvedDid = deptNameToId[did.toLowerCase()];
+    } else if (did) {
+      var normD = AppUtils.normalizeDept(did);
+      if (normD && deptNameToId[normD.toLowerCase()]) resolvedDid = deptNameToId[normD.toLowerCase()];
+    }
+
+    if (!resolvedDid && pos) {
+      var posLower = pos.toLowerCase();
+      for (var pKey in positionToDeptId) {
+        if (posLower.indexOf(pKey) !== -1) {
+          resolvedDid = positionToDeptId[pKey];
+          break;
         }
       }
     }
 
-    var bName = branchMap[bid] || (schoolBranch ? AppUtils.normalizeSchool(schoolBranch) : '') || (bid ? 'فرع ' + bid : 'الفرع الرئيسي');
-    var dName = deptMap[did] || did || (pos ? AppUtils.normalizeDept(pos) : '') || 'القسم العام';
-
-    if (!bid) bid = bName;
-    if (!did) did = dName;
+    // ── Resolved display names ────────────────────────────────────────────
+    var bName = (resolvedBid && branchMap[resolvedBid]) || (schoolTxt ? AppUtils.normalizeSchool(schoolTxt) : '') || schoolTxt || '';
+    var dName = (resolvedDid && deptMap[resolvedDid]) || (pos ? AppUtils.normalizeDept(pos) : '') || pos || '';
 
     return {
-      id:       (r['employee_id']    || '').toString(),
-      name:     (r['name']            || '').toString(),
+      id:       (r['employee_id'] || '').toString(),
+      name:     (r['name']        || '').toString(),
       spec:     pos || dName,
       school:   bName,
       dept:     dName,
-      branchId: bid,
-      deptId:   did,
+      branchId: resolvedBid,
+      deptId:   resolvedDid,
       tid:      (r['tid'] || r['TID'] || '').toString()
     };
   });
@@ -1075,17 +1108,11 @@ function getEvaluationFormData(optionalToken) {
   // Dynamically ensure branchDeptMap contains all departments present in teachers for each branch
   for (var k = 0; k < (teachers || []).length; k++) {
     var curT = teachers[k];
-    var curB = curT.branchId || curT.school;
-    var curD = curT.deptId || curT.dept;
+    var curB = curT.branchId;
+    var curD = curT.deptId;
     if (curB && curD) {
       if (!branchDeptMap[curB]) branchDeptMap[curB] = {};
       branchDeptMap[curB][curD] = true;
-      if (curT.school) {
-        if (!branchDeptMap[curT.school]) branchDeptMap[curT.school] = {};
-        branchDeptMap[curT.school][curD] = true;
-        if (curT.dept) branchDeptMap[curT.school][curT.dept] = true;
-      }
-      if (curT.dept) branchDeptMap[curB][curT.dept] = true;
     }
   }
 

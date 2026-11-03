@@ -3442,16 +3442,20 @@ function _cleanSchool(s){
 
 function _matchBranch(t, branchId, branchName){
   if(!t) return false;
-  if(t.branchId && branchId && (t.branchId === branchId || t.branchId === branchName)) return true;
-  var tbName = t.school || '';
-  if(tbName && branchName && tbName.trim().toLowerCase() === branchName.trim().toLowerCase()) return true;
-  if(tbName && branchId && tbName.trim().toLowerCase() === branchId.trim().toLowerCase()) return true;
-  var c1 = _cleanSchool(tbName);
+
+  // 1. Primary: exact ID match (backend now guarantees branchId is a real ID or '')
+  if(t.branchId && branchId && t.branchId === branchId) return true;
+
+  // 2. Secondary: canonical name match (normalize both sides)
+  var c1 = _cleanSchool(t.school);
   var c2 = _cleanSchool(branchName);
   var c3 = _cleanSchool(branchId);
-  if(c1 && (c1 === c2 || c1 === c3)) return true;
-  // If teacher has general 'STA' or blank branch, allow in any branch
-  if(!t.branchId || t.branchId === 'STA' || tbName === 'STA' || tbName === 'الفرع الرئيسي') return true;
+  if(c1 && c2 && c1 === c2) return true;
+  if(c1 && c3 && c1 === c3) return true;
+
+  // 3. If teacher has NO branch assignment at all, include them in all branches
+  if(!t.branchId && !t.school) return true;
+
   return false;
 }
 
@@ -3481,17 +3485,18 @@ function _cleanDept(d){
 
 function _matchDept(t, deptId, deptName){
   if(!t) return false;
-  if(t.deptId && deptId && (t.deptId === deptId || t.deptId === deptName)) return true;
-  var tdName = t.dept || '';
-  if(tdName && deptName && tdName.trim().toLowerCase() === deptName.trim().toLowerCase()) return true;
-  if(tdName && deptId && tdName.trim().toLowerCase() === deptId.trim().toLowerCase()) return true;
-  var cd1 = _cleanDept(tdName);
+
+  // 1. Primary: exact ID match
+  if(t.deptId && deptId && t.deptId === deptId) return true;
+
+  // 2. Secondary: canonical keyword match
+  var cd1 = _cleanDept(t.dept);
   var cd2 = _cleanDept(deptName);
   var cd3 = _cleanDept(deptId);
-  var cd4 = _cleanDept(t.deptId);
-  var cd5 = _cleanDept(t.spec || t.position);
-  if(cd2 && (cd1 === cd2 || cd4 === cd2 || cd5 === cd2)) return true;
-  if(cd3 && (cd1 === cd3 || cd4 === cd3 || cd5 === cd3)) return true;
+  var cd4 = _cleanDept(t.spec || t.position);
+  if(cd2 && (cd1 === cd2 || cd4 === cd2)) return true;
+  if(cd3 && (cd1 === cd3 || cd4 === cd3)) return true;
+
   return false;
 }
 
@@ -3517,26 +3522,28 @@ function onBranchChange(){
   var branchName=bObj?bObj.name:branchId;
   if(schoolEl) schoolEl.value=branchName;
 
-  // Filter departments for this branch
+  // Filter departments for this branch using teacherDepts
   var mappedDepts=(_evalFormData.branchDeptMap&&_evalFormData.branchDeptMap[branchId])||null;
-  var teacherDepts={};
+  var teacherDeptIds={};
   var teachers=_evalFormData.teachers||[];
+
   for(var i=0;i<teachers.length;i++){
     var t=teachers[i];
     if(_matchBranch(t, branchId, branchName)){
-      if(t.deptId) teacherDepts[t.deptId]=true;
-      if(t.dept) teacherDepts[t.dept]=true;
-      var cd = _cleanDept(t.dept || t.spec || t.deptId);
-      if(cd) teacherDepts[cd]=true;
+      if(t.deptId) teacherDeptIds[t.deptId]=true;
+      var cd = _cleanDept(t.dept || t.spec);
+      if(cd) teacherDeptIds['_name_' + cd]=true;
     }
   }
 
   var availableDepts=_evalFormData.departments.filter(function(d){
-    if(mappedDepts&&(mappedDepts[d.id]||mappedDepts[d.name])) return true;
-    if(teacherDepts[d.id]||teacherDepts[d.name]) return true;
+    // 1. Direct mapping from BranchDepartments sheet
+    if(mappedDepts && mappedDepts[d.id]) return true;
+    // 2. Exact match in teacher dept IDs
+    if(d.id && teacherDeptIds[d.id]) return true;
+    // 3. Canonical name match in teacher depts
     var cd = _cleanDept(d.name || d.id);
-    if(cd && teacherDepts[cd]) return true;
-    if(!mappedDepts&&Object.keys(teacherDepts).length===0) return true;
+    if(cd && teacherDeptIds['_name_' + cd]) return true;
     return false;
   });
 
