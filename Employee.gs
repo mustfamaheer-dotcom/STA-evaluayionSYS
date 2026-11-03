@@ -8,7 +8,7 @@ function getActiveEmployees() {
   var result = [];
   for (var i = 0; i < rows.length; i++) {
     var r = rows[i];
-    if ((r['status'] || '').toString().trim().toLowerCase() !== 'active') continue;
+    if (!AppUtils.isStatusActive(r['status'])) continue;
     result.push({
       id:       (r['employee_id']   || '').toString(),
       name:     (r['name']          || '').toString(),
@@ -36,8 +36,7 @@ function getEmployeeProfile(employeeId, optionalToken) {
 
   for (var i = 0; i < rows.length; i++) {
     var r = rows[i];
-    if (r['employee_id'].toString() === empIdStr &&
-        (r['status'] || '').toString().trim().toLowerCase() === 'active') {
+    if (r['employee_id'].toString() === empIdStr && AppUtils.isStatusActive(r['status'])) {
       return {
         id:         r['employee_id'].toString(),
         name:       r['name'].toString(),

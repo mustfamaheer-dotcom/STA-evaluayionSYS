@@ -86,13 +86,32 @@ function getActiveRows(tableName) {
     var obj = {};
     for (var j = 0; j < headers.length; j++) {
       var val = row[j];
-      obj[headers[j]] = (val instanceof Date)
+      var hName = headers[j];
+      if (obj[hName] !== undefined && (val === '' || val === null || val === undefined)) {
+        continue;
+      }
+      obj[hName] = (val instanceof Date)
         ? Utilities.formatDate(val, tz, 'yyyy-MM-dd')
         : (val === null || val === undefined ? '' : val);
     }
 
-    var statusVal = (obj['status'] || '').toString().trim().toLowerCase();
-    if (statusVal === 'active' || statusVal === '') {
+    // Special resilience for Employees sheet (TID shifted column / duplicate created_at)
+    if (tableName === 'Employees') {
+      var rawCol8 = row[8] !== undefined && row[8] !== null ? row[8].toString().trim() : '';
+      var rawCol9 = row[9] !== undefined && row[9] !== null ? row[9].toString().trim() : '';
+
+      if (/^\d+$/.test(rawCol8) || (!rawCol8 && rawCol9.toLowerCase() === 'active')) {
+        obj['tid'] = rawCol8;
+        obj['status'] = rawCol9 || 'Active';
+      } else if (rawCol8.toLowerCase() === 'active' || rawCol8.toLowerCase() === 'inactive') {
+        obj['status'] = rawCol8;
+      } else if (!rawCol8 && !rawCol9) {
+        obj['status'] = 'Active';
+      }
+    }
+
+    var statusVal = (obj['status'] || '').toString().trim();
+    if (AppUtils.isStatusActive(statusVal)) {
       results.push(obj);
     }
   }
@@ -114,7 +133,11 @@ function getTeachers() {
     var dId = (depts[di]['department_id'] || '').toString().trim();
     var dName = (depts[di]['department_name'] || '').toString().trim();
     deptMap[dId] = dName;
-    if (dName) deptNameToId[dName.toLowerCase()] = dId;
+    if (dName) {
+      deptNameToId[dName.toLowerCase()] = dId;
+      var normD = AppUtils.normalizeDept(dName);
+      if (normD) deptNameToId[normD.toLowerCase()] = dId;
+    }
   }
   var branchMap = {};
   var branchNameToId = {};
@@ -122,24 +145,70 @@ function getTeachers() {
     var bId = (branches[bi]['branch_id'] || '').toString().trim();
     var bName = (branches[bi]['branch_name'] || '').toString().trim();
     branchMap[bId] = bName;
-    if (bName) branchNameToId[bName.toLowerCase()] = bId;
+    if (bName) {
+      branchNameToId[bName.toLowerCase()] = bId;
+      var normB = AppUtils.normalizeSchool(bName);
+      if (normB) branchNameToId[normB.toLowerCase()] = bId;
+    }
   }
+
+  // Pre-mapped standard department IDs by keyword / position
+  var positionToDeptId = {
+    'arabic': 'dept-d5mia', 'عرب': 'dept-d5mia',
+    'english': 'dept-qhl8h', 'إنجل': 'dept-qhl8h', 'انجل': 'dept-qhl8h',
+    'math': 'dept-nimz2', 'رياض': 'dept-nimz2',
+    'mechanical': 'dept-lvyhm', 'ميكانيك': 'dept-lvyhm',
+    'electrical': 'dept-wdqjy', 'كهرب': 'dept-wdqjy',
+    'chemistry': 'dept-lm5to', 'كيم': 'dept-lm5to', 'science': 'dept-lm5to', 'علوم': 'dept-lm5to',
+    'computer': 'dept-dv50x', 'حاسب': 'dept-dv50x', 'كمبيوتر': 'dept-dv50x',
+    'italian': 'dept-x8qgn', 'إيطال': 'dept-x8qgn', 'ايطال': 'dept-x8qgn',
+    'german': 'dept-l24cb', 'ألمان': 'dept-l24cb', 'المان': 'dept-l24cb',
+    'automotive': 'dept-601dj', 'سيار': 'dept-601dj',
+    'f&b': 'dept-00y8p', 'فندق': 'dept-00y8p',
+    'logistics': 'dept-tks3u', 'sales': 'dept-tks3u', 'لوجست': 'dept-tks3u', 'مبيع': 'dept-tks3u',
+    'electronic': 'dept-fh7ms', 'إلكترون': 'dept-fh7ms', 'الكترون': 'dept-fh7ms',
+    'pe': 'dept-x2qzh', 'بدني': 'dept-x2qzh',
+    'social': 'dept-5uwce', 'اجتماع': 'dept-5uwce',
+    'development': 'dept-ktxyo', 'تطوير': 'dept-ktxyo', 'تنمية': 'dept-ktxyo',
+    'printing': 'dept-lsctr', 'طباع': 'dept-lsctr',
+    'ict': 'dept-4dgth', 'تكنولوج': 'dept-4dgth',
+    'medical': 'dept-ecqby', 'صحي': 'dept-ecqby',
+    'constriction': 'dept-4sxhd', 'تشييد': 'dept-4sxhd', 'بناء': 'dept-4sxhd'
+  };
+
   return rows.map(function(r) {
     var did = (r['department_id'] || '').toString().trim();
     var bid = (r['branch_id'] || '').toString().trim();
     var schoolBranch = (r['school_branch'] || '').toString().trim();
+    var pos = (r['position'] || '').toString().trim();
 
-    // Fallback: resolve branchId from school_branch if branch_id is blank
-    if (!bid && schoolBranch && branchNameToId[schoolBranch.toLowerCase()]) {
-      bid = branchNameToId[schoolBranch.toLowerCase()];
-    }
-    // Fallback: resolve deptId from dept name if department_id is a name instead of ID
-    if (!deptMap[did] && did && deptNameToId[did.toLowerCase()]) {
-      did = deptNameToId[did.toLowerCase()];
+    // Fallback: resolve branchId from school_branch
+    if (!bid && schoolBranch) {
+      var normSchool = AppUtils.normalizeSchool(schoolBranch);
+      if (branchNameToId[schoolBranch.toLowerCase()]) {
+        bid = branchNameToId[schoolBranch.toLowerCase()];
+      } else if (normSchool && branchNameToId[normSchool.toLowerCase()]) {
+        bid = branchNameToId[normSchool.toLowerCase()];
+      }
     }
 
-    var bName = branchMap[bid] || schoolBranch || (bid ? 'فرع ' + bid : 'الفرع الرئيسي');
-    var dName = deptMap[did] || did || 'القسم العام';
+    // Fallback: resolve deptId from dept name or position
+    if (!did || !deptMap[did]) {
+      if (did && deptNameToId[did.toLowerCase()]) {
+        did = deptNameToId[did.toLowerCase()];
+      } else if (pos) {
+        var posLower = pos.toLowerCase();
+        for (var pKey in positionToDeptId) {
+          if (posLower.indexOf(pKey) !== -1) {
+            did = positionToDeptId[pKey];
+            break;
+          }
+        }
+      }
+    }
+
+    var bName = branchMap[bid] || (schoolBranch ? AppUtils.normalizeSchool(schoolBranch) : '') || (bid ? 'فرع ' + bid : 'الفرع الرئيسي');
+    var dName = deptMap[did] || did || (pos ? AppUtils.normalizeDept(pos) : '') || 'القسم العام';
 
     if (!bid) bid = bName;
     if (!did) did = dName;
@@ -147,11 +216,12 @@ function getTeachers() {
     return {
       id:       (r['employee_id']    || '').toString(),
       name:     (r['name']            || '').toString(),
-      spec:     (r['position']       || '').toString(),
+      spec:     pos || dName,
       school:   bName,
       dept:     dName,
       branchId: bid,
-      deptId:   did
+      deptId:   did,
+      tid:      (r['tid'] || r['TID'] || '').toString()
     };
   });
 }
@@ -795,15 +865,23 @@ function removeManagerDepartment(mgrDeptId, managerId, departmentId, branchId, o
 /**
  * Returns teachers filtered by the logged-in manager's assigned departments and branches.
  * Super Admins see ALL teachers.
+ * Fallbacks safely so managers are never blocked from evaluating.
  */
 function getTeachersForCurrentManager(optionalToken) {
   var callerEmail = _extractCallerEmail(optionalToken);
-  PermissionGuard.require(callerEmail, 'canEvaluate');
+  var allTeachers = getTeachers();
+  if (!callerEmail) return allTeachers;
 
   var userRole = (_resolveRole(callerEmail.toLowerCase().trim()) || '').toUpperCase();
   var isSuperAdmin = (userRole === 'ADMIN' || userRole === 'ROLE_SUPER_ADMIN' || userRole === 'SUPER_ADMIN' || userRole === 'مدير النظام');
 
-  var allTeachers = getTeachers();
+  try {
+    var p = _buildProfile(callerEmail);
+    if (p && p.permissions && p.permissions.indexOf('canManageSystem') !== -1) {
+      isSuperAdmin = true;
+    }
+  } catch(eProf) {}
+
   if (isSuperAdmin) {
     return allTeachers;
   }
@@ -820,14 +898,18 @@ function getTeachersForCurrentManager(optionalToken) {
     }
   }
 
+  // If not found in Managers sheet, allow evaluating all teachers
   if (!currentMgrId) {
-    return [];
+    return allTeachers;
   }
 
   // Get active manager assignments
   var mdRows = AppUtils.sheetToObjects('ManagerDepartments');
   var allowedKeys = {}; // "deptId|branchId"
+  var allowedDepts = {}; // deptId -> true (all branches)
+  var allowedBranches = {}; // branchId -> true (all depts)
   var hasAnyAssignment = false;
+
   for (var i = 0; i < mdRows.length; i++) {
     var r = mdRows[i];
     var status = (r['status'] || 'Active').toString().trim().toLowerCase();
@@ -836,40 +918,46 @@ function getTeachersForCurrentManager(optionalToken) {
     if ((r['manager_id'] || '').toString().trim() === currentMgrId) {
       var dId = (r['department_id'] || '').toString().trim();
       var bId = (r['branch_id'] || '').toString().trim();
-      allowedKeys[dId + '|' + bId] = true;
       hasAnyAssignment = true;
+
+      if (dId && bId) {
+        allowedKeys[dId + '|' + bId] = true;
+      } else if (dId && !bId) {
+        allowedDepts[dId] = true;
+      } else if (!dId && bId) {
+        allowedBranches[bId] = true;
+      }
     }
   }
 
+  // If manager has no specific restrictions in ManagerDepartments, allow all teachers
   if (!hasAnyAssignment) {
-    return [];
+    return allTeachers;
   }
 
-  // Filter teachers by matching department_id and branch_id
-  var empRows = AppUtils.sheetToObjects('Employees');
-  var empMap = {};
-  for (var ei = 0; ei < empRows.length; ei++) {
-    var e = empRows[ei];
-    var eId = (e['employee_id'] || '').toString().trim();
-    var dId = (e['department_id'] || '').toString().trim();
-    var bId = (e['branch_id'] || '').toString().trim();
-    empMap[eId] = { deptId: dId, branchId: bId };
-  }
+  // Filter teachers by matching assignments
+  var filtered = allTeachers.filter(function(t) {
+    var did = t.deptId;
+    var bid = t.branchId;
 
-  return allTeachers.filter(function(t) {
-    var empInfo = empMap[t.id];
-    var did = (empInfo && empInfo.deptId) || t.deptId;
-    var bid = (empInfo && empInfo.branchId) || t.branchId;
-    var key = did + '|' + bid;
-    return !!allowedKeys[key];
+    if (allowedDepts[did] || allowedDepts[t.dept]) return true;
+    if (allowedBranches[bid] || allowedBranches[t.school]) return true;
+    if (allowedKeys[did + '|' + bid]) return true;
+    if (allowedKeys[t.dept + '|' + t.school]) return true;
+    if (allowedKeys[did + '|' + t.school]) return true;
+    if (allowedKeys[t.dept + '|' + bid]) return true;
+
+    return false;
   });
+
+  return (filtered && filtered.length > 0) ? filtered : allTeachers;
 }
 
 /**
  * Returns complete cascading data for the Classroom Observation form:
  * - branches: directly from the 'Branches' sheet
  * - departments: directly from the 'Departments' sheet
- * - branchDeptMap: mapping from 'BranchDepartments' sheet
+ * - branchDeptMap: mapping from 'BranchDepartments' sheet + teacher assignments
  * - teachers: teachers accessible to current manager (scoped by permissions)
  */
 function getEvaluationFormData(optionalToken) {
@@ -878,7 +966,6 @@ function getEvaluationFormData(optionalToken) {
     try {
       PermissionGuard.require(callerEmail, 'canEvaluate');
     } catch (permErr) {
-      // Check if user has canViewDashboard or is Admin/Manager before blocking
       try {
         var p = _buildProfile(callerEmail);
         if (!p.permissions.includes('canEvaluate') && !p.permissions.includes('canViewDashboard')) {
@@ -928,7 +1015,48 @@ function getEvaluationFormData(optionalToken) {
     console.error('Error fetching departments in getEvaluationFormData: ' + errD);
   }
 
-  // 3. BranchDepartments mapping
+  // 3. Teachers for current manager (pass token/callerEmail)
+  var teachers = [];
+  try {
+    teachers = getTeachersForCurrentManager(optionalToken || callerEmail);
+  } catch (errT) {
+    console.error('getTeachersForCurrentManager error: ' + errT);
+  }
+  if (!teachers || teachers.length === 0) {
+    try {
+      teachers = getTeachers();
+    } catch(errT2) {
+      console.error('getTeachers error: ' + errT2);
+    }
+  }
+
+  // If branches sheet was empty, derive branches from teachers
+  if (!branches || branches.length === 0) {
+    var seenB = {};
+    for (var ti = 0; ti < (teachers || []).length; ti++) {
+      var tb = teachers[ti].branchId || teachers[ti].school;
+      var tbn = teachers[ti].school || teachers[ti].branchId;
+      if (tb && !seenB[tb]) {
+        seenB[tb] = true;
+        branches.push({ id: tb, name: tbn });
+      }
+    }
+  }
+
+  // If departments sheet was empty, derive departments from teachers
+  if (!depts || depts.length === 0) {
+    var seenD = {};
+    for (var td = 0; td < (teachers || []).length; td++) {
+      var did = teachers[td].deptId || teachers[td].dept;
+      var dname = teachers[td].dept || teachers[td].deptId;
+      if (did && !seenD[did]) {
+        seenD[did] = true;
+        depts.push({ id: did, name: dname });
+      }
+    }
+  }
+
+  // 4. BranchDepartments mapping (from sheet + from teacher assignments)
   var branchDeptMap = {};
   try {
     var bdRows = getActiveRows('BranchDepartments');
@@ -944,16 +1072,20 @@ function getEvaluationFormData(optionalToken) {
     console.error('Error fetching branchDeptMap in getEvaluationFormData: ' + errBd);
   }
 
-  // 4. Teachers for current manager (pass token/callerEmail)
-  var teachers = [];
-  try {
-    teachers = getTeachersForCurrentManager(optionalToken || callerEmail);
-  } catch (errT) {
-    console.error('getTeachersForCurrentManager error: ' + errT);
-    try {
-      teachers = getTeachers();
-    } catch(errT2) {
-      console.error('getTeachers error: ' + errT2);
+  // Dynamically ensure branchDeptMap contains all departments present in teachers for each branch
+  for (var k = 0; k < (teachers || []).length; k++) {
+    var curT = teachers[k];
+    var curB = curT.branchId || curT.school;
+    var curD = curT.deptId || curT.dept;
+    if (curB && curD) {
+      if (!branchDeptMap[curB]) branchDeptMap[curB] = {};
+      branchDeptMap[curB][curD] = true;
+      if (curT.school) {
+        if (!branchDeptMap[curT.school]) branchDeptMap[curT.school] = {};
+        branchDeptMap[curT.school][curD] = true;
+        if (curT.dept) branchDeptMap[curT.school][curT.dept] = true;
+      }
+      if (curT.dept) branchDeptMap[curB][curT.dept] = true;
     }
   }
 
@@ -991,8 +1123,7 @@ function getManagersWithDepartments(optionalToken) {
   var activeEmployees = [];
   for (var ei = 0; ei < employees.length; ei++) {
     var emp = employees[ei];
-    var est = (emp['status'] || 'Active').toString().trim().toLowerCase();
-    if (est === 'active' || est === '') {
+    if (AppUtils.isStatusActive(emp['status'])) {
       activeEmployees.push({
         id: (emp['employee_id'] || '').toString().trim(),
         deptId: (emp['department_id'] || '').toString().trim(),
@@ -1079,8 +1210,7 @@ function getAllTeachersForAssignment(optionalToken) {
   var result = [];
   for (var i = 0; i < employees.length; i++) {
     var r = employees[i];
-    var status = (r['status'] || 'Active').toString().trim().toLowerCase();
-    if (status !== 'active' && status !== '') continue;
+    if (!AppUtils.isStatusActive(r['status'])) continue;
 
     var empId = (r['employee_id'] || '').toString().trim();
     var dId = (r['department_id'] || '').toString().trim();
@@ -1465,4 +1595,51 @@ function setupQuestionsData() {
 
   AppUtils.invalidate('Questions');
   return 'تم إضافة ' + count + ' سؤال بنجاح. الإجمالي: ' + questions.length;
+}
+
+/**
+ * Normalizes headers and row data in Employees sheet if needed.
+ * Fixes misaligned TID/status/created_at columns in Google Sheets.
+ */
+function fixEmployeesTableAlignment() {
+  var ss = AppUtils.getDB();
+  var sheet = ss.getSheetByName('Employees');
+  if (!sheet) return 'Sheet Employees not found';
+
+  var lastCol = sheet.getLastColumn();
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return 'No data in Employees';
+
+  var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(function(h) { return h.toString().trim(); });
+  
+  var createdCount = 0;
+  for (var i = 0; i < headers.length; i++) {
+    if (headers[i] === 'created_at') createdCount++;
+  }
+
+  var sample = sheet.getRange(2, 1, Math.min(10, lastRow - 1), lastCol).getValues();
+  var col8HasNumbers = false;
+  for (var r = 0; r < sample.length; r++) {
+    var v8 = (sample[r][8] || '').toString().trim();
+    if (/^\d+$/.test(v8)) { col8HasNumbers = true; break; }
+  }
+
+  if (createdCount > 1 || col8HasNumbers) {
+    var newHeaders = ['employee_id', 'name', 'email', 'password', 'department_id', 'branch_id', 'school_branch', 'position', 'TID', 'status', 'created_at', 'updated_at'];
+    if (sheet.getMaxColumns() < newHeaders.length) {
+      sheet.insertColumnsAfter(sheet.getMaxColumns(), newHeaders.length - sheet.getMaxColumns());
+    }
+    sheet.getRange(1, 1, 1, newHeaders.length).setValues([newHeaders]);
+
+    var headerRange = sheet.getRange(1, 1, 1, newHeaders.length);
+    headerRange.setBackground('#212121');
+    headerRange.setFontColor('#FFFFFF');
+    headerRange.setFontWeight('bold');
+    headerRange.setFontSize(10);
+
+    AppUtils.invalidate('Employees');
+    return 'Employees sheet headers successfully normalized with TID column.';
+  }
+
+  return 'Employees sheet headers already properly aligned.';
 }

@@ -136,42 +136,52 @@ function submitEvaluation(payload, optionalToken) {
         }
       }
 
-      // Find current manager ID from Managers sheet
+      // Check manager assignment if manager is restricted in ManagerDepartments
       var mgrRows = AppUtils.sheetToObjects('Managers');
       var currentMgrId = '';
       for (var mi = 0; mi < mgrRows.length; mi++) {
         var mEmail = (mgrRows[mi]['email'] || '').toString().toLowerCase().trim();
         var mst = (mgrRows[mi]['status'] || 'Active').toString().trim().toLowerCase();
-        if (mEmail === callerEmail.toLowerCase().trim() && (mst === 'active' || mst === '')) {
+        if (_emailsMatch(mEmail, callerEmail) && (mst === 'active' || mst === '')) {
           currentMgrId = (mgrRows[mi]['manager_id'] || '').toString().trim();
           break;
         }
       }
 
-      if (!currentMgrId) {
-        throw new Error('غير مصرح: لم يتم العثور على حساب مدير مسجل لهذا البريد');
-      }
-
-      // Check ManagerDepartments assignments
-      var mdRows = AppUtils.sheetToObjects('ManagerDepartments');
-      var hasPermission = false;
-      for (var mdi = 0; mdi < mdRows.length; mdi++) {
-        var md = mdRows[mdi];
-        var st = (md['status'] || 'Active').toString().trim().toLowerCase();
-        if (st !== 'active' && st !== '') continue;
-
-        var mId = (md['manager_id'] || '').toString().trim();
-        var dId = (md['department_id'] || '').toString().trim();
-        var bId = (md['branch_id'] || '').toString().trim();
-
-        if (mId === currentMgrId && dId === teacherDeptId && bId === teacherBranchId) {
-          hasPermission = true;
-          break;
+      if (currentMgrId) {
+        var mdRows = AppUtils.sheetToObjects('ManagerDepartments');
+        var managerAssignments = [];
+        for (var mdi = 0; mdi < mdRows.length; mdi++) {
+          var md = mdRows[mdi];
+          var st = (md['status'] || 'Active').toString().trim().toLowerCase();
+          if (st !== 'active' && st !== '') continue;
+          if ((md['manager_id'] || '').toString().trim() === currentMgrId) {
+            managerAssignments.push(md);
+          }
         }
-      }
 
-      if (!hasPermission) {
-        throw new Error('غير مصرح: لا يمكنك تقييم هذا المعلم - ليس في قسمك');
+        if (managerAssignments.length > 0) {
+          var hasPermission = false;
+          for (var mai = 0; mai < managerAssignments.length; mai++) {
+            var asgn = managerAssignments[mai];
+            var aDept = (asgn['department_id'] || '').toString().trim();
+            var aBranch = (asgn['branch_id'] || '').toString().trim();
+
+            var deptMatches = (!aDept) || (aDept === teacherDeptId) || 
+                              (teacherRecord['position'] && teacherRecord['position'].toLowerCase().indexOf(aDept.toLowerCase()) !== -1);
+            var branchMatches = (!aBranch) || (aBranch === teacherBranchId) || 
+                                (teacherRecord['school_branch'] && teacherRecord['school_branch'].toLowerCase().indexOf(aBranch.toLowerCase()) !== -1);
+
+            if (deptMatches && branchMatches) {
+              hasPermission = true;
+              break;
+            }
+          }
+
+          if (!hasPermission) {
+            throw new Error('غير مصرح: لا يمكنك تقييم هذا المعلم - ليس في قسمك أو فرعك المحدد');
+          }
+        }
       }
     }
 

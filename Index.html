@@ -3423,6 +3423,78 @@ function v(id){var el=document.getElementById(id);return el?el.value:'';}
 /* ── Cascading dropdowns ─────────────────────────────────────────────── */
 var _teacherMap={}, _evalFormData=null;
 
+function _cleanSchool(s){
+  if(!s) return '';
+  var str = s.toString().trim().toLowerCase().replace(/[\s\-_]+/g,' ');
+  if(str.indexOf('portsaid')!==-1 || str.indexOf('zohr')!==-1 || str.indexOf('بورسعيد')!==-1) return 'zohr';
+  if(str.indexOf('sadat')!==-1 || str.indexOf('sta3')!==-1 || str.indexOf('السادات')!==-1) return 'sadat';
+  if(str.indexOf('damietta')!==-1 || str.indexOf('دمياط')!==-1) return 'damietta';
+  if(str.indexOf('alamein')!==-1 || str.indexOf('العلمين')!==-1) return 'alamein';
+  if(str.indexOf('sokhna')!==-1 || str.indexOf('السخنة')!==-1) return 'sokhna';
+  if(str.indexOf('belbeis')!==-1 || str.indexOf('بلبيس')!==-1) return 'belbeis';
+  if(str.indexOf('maghagha')!==-1 || str.indexOf('مغاغة')!==-1) return 'maghagha';
+  if(str.indexOf('m8')!==-1 || str.indexOf('gets')!==-1) return 'm8';
+  if(str.indexOf('shubra')!==-1 || str.indexOf('شبرا')!==-1) return 'shubra';
+  if(str==='sta 1' || str==='sta1') return 'sta1';
+  if(str==='sta 2' || str==='sta2') return 'sta2';
+  return str;
+}
+
+function _matchBranch(t, branchId, branchName){
+  if(!t) return false;
+  if(t.branchId && branchId && (t.branchId === branchId || t.branchId === branchName)) return true;
+  var tbName = t.school || '';
+  if(tbName && branchName && tbName.trim().toLowerCase() === branchName.trim().toLowerCase()) return true;
+  if(tbName && branchId && tbName.trim().toLowerCase() === branchId.trim().toLowerCase()) return true;
+  var c1 = _cleanSchool(tbName);
+  var c2 = _cleanSchool(branchName);
+  var c3 = _cleanSchool(branchId);
+  if(c1 && (c1 === c2 || c1 === c3)) return true;
+  // If teacher has general 'STA' or blank branch, allow in any branch
+  if(!t.branchId || t.branchId === 'STA' || tbName === 'STA' || tbName === 'الفرع الرئيسي') return true;
+  return false;
+}
+
+function _cleanDept(d){
+  if(!d) return '';
+  var str = d.toString().trim().toLowerCase();
+  if(str.indexOf('عرب')!==-1 || str.indexOf('arabic')!==-1) return 'arabic';
+  if(str.indexOf('انجل')!==-1 || str.indexOf('إنجل')!==-1 || str.indexOf('english')!==-1) return 'english';
+  if(str.indexOf('رياض')!==-1 || str.indexOf('math')!==-1) return 'math';
+  if(str.indexOf('ميكانيك')!==-1 || str.indexOf('mechanic')!==-1) return 'mechanic';
+  if(str.indexOf('كهرب')!==-1 || str.indexOf('electr')!==-1) return 'electric';
+  if(str.indexOf('كيم')!==-1 || str.indexOf('chem')!==-1 || str.indexOf('علوم')!==-1) return 'chemistry';
+  if(str.indexOf('حاسب')!==-1 || str.indexOf('كمبيوتر')!==-1 || str.indexOf('computer')!==-1) return 'computer';
+  if(str.indexOf('إيطال')!==-1 || str.indexOf('ايطال')!==-1 || str.indexOf('italian')!==-1) return 'italian';
+  if(str.indexOf('ألمان')!==-1 || str.indexOf('المان')!==-1 || str.indexOf('german')!==-1) return 'german';
+  if(str.indexOf('سيار')!==-1 || str.indexOf('automotive')!==-1) return 'automotive';
+  if(str.indexOf('فندق')!==-1 || str.indexOf('f&b')!==-1 || str.indexOf('مطاعم')!==-1) return 'fnb';
+  if(str.indexOf('لوجست')!==-1 || str.indexOf('logistics')!==-1 || str.indexOf('مبيع')!==-1 || str.indexOf('sales')!==-1) return 'logistics';
+  if(str.indexOf('إلكترون')!==-1 || str.indexOf('الكترون')!==-1 || str.indexOf('electronic')!==-1) return 'electronics';
+  if(str.indexOf('بدني')!==-1 || str.indexOf('pe')!==-1 || str.indexOf('رياضي')!==-1) return 'pe';
+  if(str.indexOf('اجتماع')!==-1 || str.indexOf('social')!==-1) return 'social';
+  if(str.indexOf('تطور')!==-1 || str.indexOf('تنمية')!==-1 || str.indexOf('development')!==-1) return 'development';
+  if(str.indexOf('طباع')!==-1 || str.indexOf('printing')!==-1) return 'printing';
+  if(str.indexOf('ict')!==-1 || str.indexOf('تكنولوج')!==-1) return 'ict';
+  return str;
+}
+
+function _matchDept(t, deptId, deptName){
+  if(!t) return false;
+  if(t.deptId && deptId && (t.deptId === deptId || t.deptId === deptName)) return true;
+  var tdName = t.dept || '';
+  if(tdName && deptName && tdName.trim().toLowerCase() === deptName.trim().toLowerCase()) return true;
+  if(tdName && deptId && tdName.trim().toLowerCase() === deptId.trim().toLowerCase()) return true;
+  var cd1 = _cleanDept(tdName);
+  var cd2 = _cleanDept(deptName);
+  var cd3 = _cleanDept(deptId);
+  var cd4 = _cleanDept(t.deptId);
+  var cd5 = _cleanDept(t.spec || t.position);
+  if(cd2 && (cd1 === cd2 || cd4 === cd2 || cd5 === cd2)) return true;
+  if(cd3 && (cd1 === cd3 || cd4 === cd3 || cd5 === cd3)) return true;
+  return false;
+}
+
 function onBranchChange(){
   var branchId=v('basic-branch');
   var deptSel=document.getElementById('basic-dept');
@@ -3451,15 +3523,19 @@ function onBranchChange(){
   var teachers=_evalFormData.teachers||[];
   for(var i=0;i<teachers.length;i++){
     var t=teachers[i];
-    if(t.branchId===branchId || (t.school&&t.school.trim().toLowerCase()===branchName.trim().toLowerCase())){
+    if(_matchBranch(t, branchId, branchName)){
       if(t.deptId) teacherDepts[t.deptId]=true;
       if(t.dept) teacherDepts[t.dept]=true;
+      var cd = _cleanDept(t.dept || t.spec || t.deptId);
+      if(cd) teacherDepts[cd]=true;
     }
   }
 
   var availableDepts=_evalFormData.departments.filter(function(d){
     if(mappedDepts&&(mappedDepts[d.id]||mappedDepts[d.name])) return true;
     if(teacherDepts[d.id]||teacherDepts[d.name]) return true;
+    var cd = _cleanDept(d.name || d.id);
+    if(cd && teacherDepts[cd]) return true;
     if(!mappedDepts&&Object.keys(teacherDepts).length===0) return true;
     return false;
   });
@@ -3518,11 +3594,7 @@ function onDeptChange(){
 
   var teachers=_evalFormData.teachers||[];
   var filteredTeachers=teachers.filter(function(t){
-    var matchBranch=(t.branchId===branchId) ||
-                    (t.school&&branchName&&t.school.trim().toLowerCase()===branchName.trim().toLowerCase());
-    var matchDept=(t.deptId===deptId) ||
-                  (t.dept&&deptName&&t.dept.trim().toLowerCase()===deptName.trim().toLowerCase());
-    return matchBranch && matchDept;
+    return _matchBranch(t, branchId, branchName) && _matchDept(t, deptId, deptName);
   });
 
   if(nameSel){
