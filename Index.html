@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
   <base target="_top">
@@ -1133,7 +1133,7 @@ function loadModule(name){
             +'<form id="frm-cls" onsubmit="submitClass(event)">'
               +'<input type="hidden" id="cls-edit-id" value="">'
               +'<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:16px;margin-bottom:18px;">'
-                +fld('الصف','<select id="cls-grade" class="form-input" required><option value="">— اختر الصف —</option><option>الصف الأول</option><option>الصف الثاني</option><option>الصف الثالث</option></select>')
+                +fld('الصف','<select id="cls-grade" class="form-input" required><option value="">— اختر الصف —</option><option>الصف الأول</option><option>الصف الثاني</option><option>الصف الثالث</option><option>الصف الرابع</option><option>الصف الخامس</option></select>')
                 +fld('اسم الفصل','<input type="text" id="cls-name" class="form-input" required placeholder="مثال: أ أو 1/1">')
                 +fld('الفرع (المدرسة)','<select id="cls-branch" class="form-input" required><option value="">جاري التحميل...</option></select>')
               +'</div>'
@@ -1160,6 +1160,8 @@ function loadModule(name){
                   +'<option>الصف الأول</option>'
                   +'<option>الصف الثاني</option>'
                   +'<option>الصف الثالث</option>'
+                  +'<option>الصف الرابع</option>'
+                  +'<option>الصف الخامس</option>'
                 +'</select>'
               +'</div>'
               +'<div style="flex:1;min-width:160px;">'
@@ -3175,8 +3177,9 @@ function renderEvalForm(){
             +'<div style="padding:0 16px;font-size:0.7rem;font-weight:700;color:var(--sta-red);background:rgba(211,47,47,0.04);border:1px solid rgba(211,47,47,0.15);border-radius:20px;white-space:nowrap;">بيانات الفصل</div>'
             +'<div style="flex:1;height:1px;background:linear-gradient(to right,transparent,rgba(211,47,47,0.2),rgba(211,47,47,0.4),rgba(211,47,47,0.2),transparent);"></div>'
           +'</div>'
-          +'<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;">'
-            +'<div>'+fld('الصف','<select id="basic-grade" class="form-input" required onchange="onGradeChange()"><option value="">— اختر الصف —</option><option>الصف الأول</option><option>الصف الثاني</option><option>الصف الثالث</option></select>')+'</div>'
+          +'<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;">'
+            +'<div>'+fld('الصف','<select id="basic-grade" class="form-input" required onchange="onGradeChange()"><option value="">— اختر الصف —</option><option>الصف الأول</option><option>الصف الثاني</option><option>الصف الثالث</option><option>الصف الرابع</option><option>الصف الخامس</option></select>')+'</div>'
+            +'<div>'+fld('تخصص الفصل','<select id="basic-class-spec" class="form-input" required onchange="onClassSpecChange()"><option value="">— اختر التخصص —</option></select>')+'</div>'
             +'<div>'+fld('الفصل','<select id="basic-class" class="form-input" required onchange="onClassChange()"><option value="">— اختر الفصل —</option></select>')+'</div>'
             +'<div>'+fld('الفصل الدراسي','<select id="basic-semester" class="form-input" required onchange="validateCtx()"><option value="">— اختر —</option><option>الفصل الدراسي الأول</option><option>الفصل الدراسي الثاني</option></select>')+'</div>'
           +'</div>'
