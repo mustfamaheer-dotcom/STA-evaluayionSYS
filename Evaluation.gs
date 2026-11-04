@@ -223,7 +223,7 @@ function submitEvaluation(payload, optionalToken) {
       payload.school || '',             // school
       payload.grade || '',              // grade
       payload.className || '',          // class_name
-      payload.classSpec || '',          // class_spec
+      payload.classSpec || payload.teacherSpec || '', // class_spec
       payload.semester || '',           // semester
       avgScore,                         // avg_score
       payload.notes || '',              // notes
@@ -394,7 +394,7 @@ function getDashboardStats(filters, optionalToken) {
         employeeScores[empKey].scores.push(score);
       }
 
-      var deptName = (ev['class_spec'] || '').toString().trim();
+      var deptName = (ev['class_spec'] || ev['teacher_spec'] || '').toString().trim();
       if (deptName) {
         if (!deptScores[deptName]) deptScores[deptName] = { sum: 0, count: 0 };
         deptScores[deptName].sum   += score;
@@ -606,7 +606,7 @@ function getDashboardStats(filters, optionalToken) {
     var dcDept = '';
     for (var dci3 = 0; dci3 < evaluations.length; dci3++) {
       if ((evaluations[dci3]['evaluation_id'] || '').toString().trim() === dcEId) {
-        dcDept = (evaluations[dci3]['class_spec'] || '').toString().trim();
+        dcDept = (evaluations[dci3]['class_spec'] || evaluations[dci3]['teacher_spec'] || '').toString().trim();
         break;
       }
     }

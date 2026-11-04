@@ -3169,14 +3169,14 @@ function renderEvalForm(){
           +'</div>'
           +'<input type="hidden" id="basic-spec">'
           +'<input type="hidden" id="basic-school">'
+          +'<input type="hidden" id="basic-class-spec">'
           +'<div style="display:flex;align-items:center;padding:6px 0;margin:4px 0;">'
             +'<div style="flex:1;height:1px;background:linear-gradient(to right,transparent,rgba(211,47,47,0.2),rgba(211,47,47,0.4),rgba(211,47,47,0.2),transparent);"></div>'
             +'<div style="padding:0 16px;font-size:0.7rem;font-weight:700;color:var(--sta-red);background:rgba(211,47,47,0.04);border:1px solid rgba(211,47,47,0.15);border-radius:20px;white-space:nowrap;">بيانات الفصل</div>'
             +'<div style="flex:1;height:1px;background:linear-gradient(to right,transparent,rgba(211,47,47,0.2),rgba(211,47,47,0.4),rgba(211,47,47,0.2),transparent);"></div>'
           +'</div>'
-          +'<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;">'
+          +'<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;">'
             +'<div>'+fld('الصف','<select id="basic-grade" class="form-input" required onchange="onGradeChange()"><option value="">— اختر الصف —</option><option>الصف الأول</option><option>الصف الثاني</option><option>الصف الثالث</option></select>')+'</div>'
-            +'<div>'+fld('تخصص الفصل','<select id="basic-class-spec" class="form-input" required onchange="onClassSpecChange()"><option value="">— اختر التخصص —</option></select>')+'</div>'
             +'<div>'+fld('الفصل','<select id="basic-class" class="form-input" required onchange="onClassChange()"><option value="">— اختر الفصل —</option></select>')+'</div>'
             +'<div>'+fld('الفصل الدراسي','<select id="basic-semester" class="form-input" required onchange="validateCtx()"><option value="">— اختر —</option><option>الفصل الدراسي الأول</option><option>الفصل الدراسي الثاني</option></select>')+'</div>'
           +'</div>'
@@ -3310,12 +3310,12 @@ function validateCtx(){
       spec    = v('basic-spec'),
       school  = v('basic-school'),
       cls     = v('basic-class'),
-      clsSpec = v('basic-class-spec'),
+      clsSpec = v('basic-class-spec') || spec || '',
       branch  = v('basic-branch'),
       dept    = v('basic-dept');
 
   var qs = document.getElementById('q-section'); if(!qs) return;
-  if(branch&&dept&&g&&sem&&name&&spec&&school&&cls&&clsSpec){
+  if(branch&&dept&&g&&sem&&name&&spec&&school&&cls){
     if(qs.style.display==='none'){
       var ratingQs=globalQuestionsCached.filter(function(q){return parseFloat(q.weight)>0;});
       var cats={};
@@ -3392,8 +3392,7 @@ function validateCtx(){
             +'<div style="background:rgba(211,47,47,0.04);padding:10px 14px;border-radius:10px;"><div style="font-size:0.65rem;color:var(--text-muted);font-weight:700;margin-bottom:2px;">المعلم</div><div style="font-size:0.82rem;font-weight:600;color:var(--text-primary);">'+esc(teacherDisplayName)+'</div></div>'
             +'<div style="background:rgba(211,47,47,0.04);padding:10px 14px;border-radius:10px;"><div style="font-size:0.65rem;color:var(--text-muted);font-weight:700;margin-bottom:2px;">الصف</div><div style="font-size:0.82rem;font-weight:600;color:var(--text-primary);">'+esc(g)+'</div></div>'
             +'<div style="background:rgba(211,47,47,0.04);padding:10px 14px;border-radius:10px;"><div style="font-size:0.65rem;color:var(--text-muted);font-weight:700;margin-bottom:2px;">الفصل</div><div style="font-size:0.82rem;font-weight:600;color:var(--text-primary);">'+esc(cls)+'</div></div>'
-            +'<div style="background:rgba(211,47,47,0.04);padding:10px 14px;border-radius:10px;"><div style="font-size:0.65rem;color:var(--text-muted);font-weight:700;margin-bottom:2px;">تخصص الفصل</div><div style="font-size:0.82rem;font-weight:600;color:var(--text-primary);">'+esc(clsSpec)+'</div></div>'
-            +'<div style="background:rgba(211,47,47,0.04);padding:10px 14px;border-radius:10px;grid-column:span 3;"><div style="font-size:0.65rem;color:var(--text-muted);font-weight:700;margin-bottom:2px;">الفصل الدراسي</div><div style="font-size:0.82rem;font-weight:600;color:var(--text-primary);">'+esc(sem)+'</div></div>'
+            +'<div style="background:rgba(211,47,47,0.04);padding:10px 14px;border-radius:10px;"><div style="font-size:0.65rem;color:var(--text-muted);font-weight:700;margin-bottom:2px;">الفصل الدراسي</div><div style="font-size:0.82rem;font-weight:600;color:var(--text-primary);">'+esc(sem)+'</div></div>'
           +'</div>'
         +'</div>';
       document.getElementById('q-list').innerHTML=ctxHtml+allQuestionsHtml;
@@ -3658,7 +3657,7 @@ function resetClassFieldsAndQuestions(){
   var qs=document.getElementById('q-section');
 
   if(gr) gr.value='';
-  if(cs) cs.innerHTML='<option value="">— اختر التخصص —</option>';
+  if(cs) cs.value='';
   if(cl) cl.innerHTML='<option value="">— اختر الفصل —</option>';
   if(qs) qs.style.display='none';
 
@@ -3666,38 +3665,19 @@ function resetClassFieldsAndQuestions(){
 }
 
 function onGradeChange(){
-  document.getElementById('basic-class').innerHTML='<option value="">— اختر الفصل —</option>';
-  document.getElementById('basic-class-spec').innerHTML='<option value="">جاري التحميل...</option>';
-  document.getElementById('q-section').style.display='none';
+  var classSel=document.getElementById('basic-class');
+  var csEl=document.getElementById('basic-class-spec');
+  if(csEl) csEl.value='';
+  if(classSel) classSel.innerHTML='<option value="">— اختر الفصل —</option>';
+  var qs=document.getElementById('q-section');
+  if(qs) qs.style.display='none';
+
   var grade=v('basic-grade');
   if(!grade){
-    document.getElementById('basic-class-spec').innerHTML='<option value="">— اختر التخصص —</option>';
+    validateCtx();
     return;
   }
-  var tid=v('basic-name');
-  var branchId=v('basic-branch')||((_teacherMap[tid]&&_teacherMap[tid].branchId)||'');
-  google.script.run
-    .withSuccessHandler(function(specs){
-      var s=document.getElementById('basic-class-spec');
-      if(!s) return;
-      var o='<option value="">— اختر التخصص —</option>';
-      for(var i=0;i<specs.length;i++) o+='<option value="'+esc(specs[i])+'">'+esc(specs[i])+'</option>';
-      if(specs.length===0) o='<option value="">لا توجد تخصصات لهذا الصف</option>';
-      s.innerHTML=o;
-    })
-    .withFailureHandler(function(){var s=document.getElementById('basic-class-spec');if(s)s.innerHTML='<option value="">خطأ</option>';})
-    .getClassSpecsByGrade(grade, branchId);
-}
-
-function onClassSpecChange(){
-  document.getElementById('basic-class').innerHTML='<option value="">جاري التحميل...</option>';
-  document.getElementById('q-section').style.display='none';
-  var grade=v('basic-grade');
-  var spec=v('basic-class-spec');
-  if(!grade||!spec){
-    document.getElementById('basic-class').innerHTML='<option value="">— اختر الفصل —</option>';
-    return;
-  }
+  if(classSel) classSel.innerHTML='<option value="">جاري التحميل...</option>';
   var tid=v('basic-name');
   var branchId=v('basic-branch')||((_teacherMap[tid]&&_teacherMap[tid].branchId)||'');
   google.script.run
@@ -3706,17 +3686,27 @@ function onClassSpecChange(){
       if(!s) return;
       var o='<option value="">— اختر الفصل —</option>';
       for(var i=0;i<classes.length;i++){
-        o+='<option value="'+esc(classes[i].name)+'" data-spec="'+esc(classes[i].spec)+'" data-classid="'+esc(classes[i].id)+'">'+esc(classes[i].name)+'</option>';
+        o+='<option value="'+esc(classes[i].name)+'" data-spec="'+esc(classes[i].spec||'')+'" data-classid="'+esc(classes[i].id)+'">'+esc(classes[i].name)+'</option>';
       }
-      if(classes.length===0) o='<option value="">لا توجد فصول</option>';
+      if(classes.length===0) o='<option value="">لا توجد فصول لهذا الصف</option>';
       s.innerHTML=o;
     })
-    .withFailureHandler(function(){var s=document.getElementById('basic-class');if(s)s.innerHTML='<option value="">خطأ</option>';})
-    .getClassesByGradeAndSpec(grade, spec, branchId);
+    .withFailureHandler(function(){var s=document.getElementById('basic-class');if(s)s.innerHTML='<option value="">خطأ في تحميل الفصول</option>';})
+    .getClassesByGrade(grade, branchId);
 }
 
+function onClassSpecChange(){}
+
 function onClassChange(){
-  document.getElementById('q-section').style.display='none';
+  var classSel=document.getElementById('basic-class');
+  var csEl=document.getElementById('basic-class-spec');
+  if(classSel && csEl){
+    var opt=classSel.options[classSel.selectedIndex];
+    var spec=opt ? (opt.getAttribute('data-spec')||'') : '';
+    csEl.value=spec || v('basic-spec') || '';
+  }
+  var qs=document.getElementById('q-section');
+  if(qs) qs.style.display='none';
   validateCtx();
 }
 
@@ -3785,7 +3775,7 @@ function submitEval(e){
       school:         v('basic-school'),
       grade:          v('basic-grade'),
       className:      v('basic-class'),
-      classSpec:      v('basic-class-spec'),
+      classSpec:      v('basic-class-spec') || v('basic-spec') || '',
       semester:       v('basic-semester'),
       notes:          v('eval-notes'),
       ratings:        ratings,
