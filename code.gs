@@ -20,12 +20,23 @@ function include(filename) {
 // ── Client-facing aliases ─────────────────────────────────────────────────────
 
 function getRowsFromTable(tableName) {
+  if (tableName === 'Branches') {
+    return getBranches();
+  }
   return getActiveRows(tableName);
 }
 
 // Write aliases
 function addNewDepartmentRow(p, optionalToken) { return addDepartment(p, optionalToken); }
-function addNewClassRow(p, optionalToken)      { return addClass({ name: p.name, departmentId: p.department_id, grade: p.grade }, optionalToken); }
+function addNewClassRow(p, optionalToken) {
+  return addClass({
+    name: p.name,
+    grade: p.grade,
+    branchId: p.branch_id || p.branchId,
+    branch: p.branch || p.school_branch || p.branch_name,
+    departmentId: p.department_id || p.departmentId
+  }, optionalToken);
+}
 function addNewQuestionRow(p, optionalToken)   { return addQuestion(p, optionalToken); }
 function addNewInstructorRow(p, optionalToken) {
   return addInstructor({
@@ -296,14 +307,44 @@ function getClassSpecsByGrade(grade, branchId) {
     }
     var allowedDepts = branchId ? getBranchDeptIds(branchId) : null;
     var targetGrade = (grade || '').toString().trim();
+    var targetBranch = (branchId || '').toString().trim();
+
+    var branches = getBranches();
+    var branchMap = {};
+    for (var bi = 0; bi < branches.length; bi++) {
+      var bid = (branches[bi]['branch_id'] || '').toString().trim();
+      var bname = (branches[bi]['branch_name'] || '').toString().trim();
+      if (bid) branchMap[bid] = bname;
+      if (bname) branchMap[bname.toLowerCase()] = bid;
+    }
+    var targetBranchName = (branchMap[targetBranch] || targetBranch).toLowerCase();
+
     var specs = {};
     for (var i = 0; i < rows.length; i++) {
       var r = rows[i];
       if ((r['grade'] || '').toString().trim() !== targetGrade) continue;
-      var deptId = (r['department_id'] || '').toString();
-      if (allowedDepts && allowedDepts.indexOf(deptId) < 0) continue;
+
+      var cBranchId = (r['branch_id'] || '').toString().trim();
+      var cSchool = (r['school_branch'] || r['branch_name'] || '').toString().trim();
+      var deptId = (r['department_id'] || '').toString().trim();
+
+      if (targetBranch) {
+        if (cBranchId || cSchool) {
+          var matchesBranch = (cBranchId === targetBranch) ||
+                              (cSchool.toLowerCase() === targetBranchName) ||
+                              (branchMap[cBranchId] && branchMap[cBranchId].toLowerCase() === targetBranchName);
+          if (!matchesBranch) continue;
+        } else if (deptId && allowedDepts && allowedDepts.indexOf(deptId) < 0) {
+          continue;
+        }
+      }
+
       var specName = deptMap[deptId] || deptId;
-      if (specName) specs[specName] = true;
+      if (specName) {
+        specs[specName] = true;
+      } else {
+        specs['عام'] = true;
+      }
     }
     var result = [];
     for (var s in specs) { if (specs.hasOwnProperty(s)) result.push(s); }
@@ -322,23 +363,58 @@ function getClassesByGradeAndSpec(grade, spec, branchId) {
   }
   var allowedDepts = branchId ? getBranchDeptIds(branchId) : null;
   var targetGrade = (grade || '').toString().trim();
+  var targetBranch = (branchId || '').toString().trim();
+
+  var branches = getBranches();
+  var branchMap = {};
+  for (var bi = 0; bi < branches.length; bi++) {
+    var bid = (branches[bi]['branch_id'] || '').toString().trim();
+    var bname = (branches[bi]['branch_name'] || '').toString().trim();
+    if (bid) branchMap[bid] = bname;
+    if (bname) branchMap[bname.toLowerCase()] = bid;
+  }
+  var targetBranchName = (branchMap[targetBranch] || targetBranch).toLowerCase();
+
   return rows
     .filter(function(r) {
       if (targetGrade && (r['grade'] || '').toString().trim() !== targetGrade) return false;
-      var deptId = (r['department_id'] || '').toString();
-      if (allowedDepts && allowedDepts.indexOf(deptId) < 0) return false;
+
+      var cBranchId = (r['branch_id'] || '').toString().trim();
+      var cSchool = (r['school_branch'] || r['branch_name'] || '').toString().trim();
+      var deptId = (r['department_id'] || '').toString().trim();
+
+      if (targetBranch) {
+        if (cBranchId || cSchool) {
+          var matchesBranch = (cBranchId === targetBranch) ||
+                              (cSchool.toLowerCase() === targetBranchName) ||
+                              (branchMap[cBranchId] && branchMap[cBranchId].toLowerCase() === targetBranchName);
+          if (!matchesBranch) return false;
+        } else if (deptId && allowedDepts && allowedDepts.indexOf(deptId) < 0) {
+          return false;
+        }
+      }
+
       if (spec) {
+        var specTrim = spec.toString().trim();
         var specName = deptMap[deptId] || deptId;
-        if (specName !== spec.toString().trim()) return false;
+        if (specTrim === 'عام' || specTrim === '—') {
+          if (specName && specName !== 'عام' && specName !== '—') return false;
+        } else {
+          if (specName !== specTrim) return false;
+        }
       }
       return true;
     })
     .map(function(r) {
-      var deptId = (r['department_id'] || '').toString();
+      var deptId = (r['department_id'] || '').toString().trim();
+      var cBranchId = (r['branch_id'] || '').toString().trim();
+      var bName = (r['school_branch'] || r['branch_name'] || branchMap[cBranchId] || '').toString().trim();
       return {
-        id:    (r['class_id']      || '').toString(),
-        name:  (r['class_name']    || '').toString(),
-        spec:  deptMap[deptId] || deptId
+        id:          (r['class_id']      || '').toString(),
+        name:        (r['class_name']    || '').toString(),
+        spec:        deptMap[deptId] || deptId || 'عام',
+        branchId:    cBranchId,
+        branchName:  bName
       };
     });
 }
@@ -437,8 +513,64 @@ function addRow(tableName, payload, optionalToken) {
 function addDepartment(p, optionalToken) {
   return addRow('Departments', { department_name: p.name }, optionalToken);
 }
+function ensureClassHeaders() {
+  try {
+    var ss = AppUtils.getDB();
+    var sheet = ss.getSheetByName('Classes');
+    if (!sheet) return;
+    var lastCol = sheet.getLastColumn();
+    if (lastCol === 0) return;
+    var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(function(h) { return h.toString().trim(); });
+    
+    var needed = ['branch_id', 'school_branch', 'grade'];
+    for (var k = 0; k < needed.length; k++) {
+      var colName = needed[k];
+      if (headers.indexOf(colName) === -1) {
+        lastCol++;
+        sheet.getRange(1, lastCol).setValue(colName);
+        sheet.getRange(1, lastCol).setBackground('#212121');
+        sheet.getRange(1, lastCol).setFontColor('#FFFFFF');
+        sheet.getRange(1, lastCol).setFontWeight('bold');
+        headers.push(colName);
+      }
+    }
+  } catch (e) {
+    console.error('ensureClassHeaders error: ' + e);
+  }
+}
+
 function addClass(p, optionalToken) {
-  return addRow('Classes', { class_name: p.name, department_id: p.departmentId, grade: p.grade }, optionalToken);
+  var bId = (p.branchId || p.branch_id || '').toString().trim();
+  var bName = (p.branch || p.school_branch || p.branch_name || '').toString().trim();
+  if (bId && !bName) {
+    var branches = getBranches();
+    for (var i = 0; i < branches.length; i++) {
+      if ((branches[i]['branch_id'] || '').toString().trim() === bId) {
+        bName = (branches[i]['branch_name'] || '').toString().trim();
+        break;
+      }
+    }
+  } else if (bName && !bId) {
+    var branches = getBranches();
+    for (var i = 0; i < branches.length; i++) {
+      if ((branches[i]['branch_name'] || '').toString().trim().toLowerCase() === bName.toLowerCase()) {
+        bId = (branches[i]['branch_id'] || '').toString().trim();
+        break;
+      }
+    }
+  }
+
+  ensureClassHeaders();
+
+  var row = {
+    class_name: p.name,
+    grade: p.grade
+  };
+  if (bId) row.branch_id = bId;
+  if (bName) row.school_branch = bName;
+  if (p.departmentId || p.department_id) row.department_id = p.departmentId || p.department_id;
+
+  return addRow('Classes', row, optionalToken);
 }
 function addQuestion(p, optionalToken) {
   return addRow('Questions', {
@@ -497,20 +629,39 @@ function addNewBranchRow(p, optionalToken) {
 }
 
 /**
- * Returns all active classes with resolved department names for management
+ * Returns all active classes with resolved branch and department names for management
  */
 function getClassesWithDetails() {
+  ensureClassHeaders();
   var rows = getActiveRows('Classes');
+  var branches = getBranches();
+  var branchMap = {};
+  for (var bi = 0; bi < branches.length; bi++) {
+    var bid = (branches[bi]['branch_id'] || '').toString().trim();
+    var bname = (branches[bi]['branch_name'] || '').toString().trim();
+    if (bid) branchMap[bid] = bname;
+  }
+
   var depts = getActiveRows('Departments');
   var deptMap = {};
   for (var di = 0; di < depts.length; di++) {
     deptMap[(depts[di]['department_id'] || '').toString().trim()] = (depts[di]['department_name'] || '').toString();
   }
+
   return rows.map(function (r) {
+    var bId = (r['branch_id'] || '').toString().trim();
+    var bName = (r['school_branch'] || r['branch_name'] || '').toString().trim();
+    if (!bName && bId && branchMap[bId]) {
+      bName = branchMap[bId];
+    }
     var dId = (r['department_id'] || '').toString().trim();
+
     return {
       class_id: (r['class_id'] || '').toString().trim(),
       class_name: (r['class_name'] || '').toString().trim(),
+      branch_id: bId,
+      branch_name: bName,
+      school_branch: bName,
       department_id: dId,
       department_name: deptMap[dId] || '',
       grade: (r['grade'] || '').toString().trim(),
@@ -520,7 +671,7 @@ function getClassesWithDetails() {
 }
 
 /**
- * Updates a class's name, department, or grade
+ * Updates a class's name, branch, department, or grade
  */
 function updateClass(classId, p, optionalToken) {
   var callerEmail = _extractCallerEmail(optionalToken, p);
@@ -530,6 +681,7 @@ function updateClass(classId, p, optionalToken) {
   if (!targetId) return { success: false, error: 'معرف الفصل مطلوب' };
 
   try {
+    ensureClassHeaders();
     var ss = AppUtils.getDB();
     var sheet = ss.getSheetByName('Classes');
     if (!sheet) return { success: false, error: 'صفحة Classes غير موجودة' };
@@ -539,17 +691,33 @@ function updateClass(classId, p, optionalToken) {
     var idIdx = headers.indexOf('class_id');
     var nameIdx = headers.indexOf('class_name');
     var deptIdx = headers.indexOf('department_id');
+    var branchIdx = headers.indexOf('branch_id');
+    var schoolBranchIdx = headers.indexOf('school_branch');
     var gradeIdx = headers.indexOf('grade');
     var statusIdx = headers.indexOf('status');
 
     if (idIdx === -1) return { success: false, error: 'عمود class_id غير موجود' };
 
+    var bId = (p.branch_id !== undefined ? p.branch_id : p.branchId);
+    var bName = (p.branch !== undefined ? p.branch : (p.school_branch !== undefined ? p.school_branch : p.branch_name));
+    if (bId && !bName) {
+      var branches = getBranches();
+      for (var bi = 0; bi < branches.length; bi++) {
+        if ((branches[bi]['branch_id'] || '').toString().trim() === bId.toString().trim()) {
+          bName = (branches[bi]['branch_name'] || '').toString().trim();
+          break;
+        }
+      }
+    }
+
     for (var i = 1; i < data.length; i++) {
       if ((data[i][idIdx] || '').toString().trim() === targetId) {
         var rowNum = i + 1;
         if (p.name !== undefined && nameIdx !== -1) sheet.getRange(rowNum, nameIdx + 1).setValue(p.name);
-        if (p.department_id !== undefined && deptIdx !== -1) sheet.getRange(rowNum, deptIdx + 1).setValue(p.department_id);
         if (p.grade !== undefined && gradeIdx !== -1) sheet.getRange(rowNum, gradeIdx + 1).setValue(p.grade);
+        if (bId !== undefined && branchIdx !== -1) sheet.getRange(rowNum, branchIdx + 1).setValue(bId);
+        if (bName !== undefined && schoolBranchIdx !== -1) sheet.getRange(rowNum, schoolBranchIdx + 1).setValue(bName);
+        if (p.department_id !== undefined && deptIdx !== -1) sheet.getRange(rowNum, deptIdx + 1).setValue(p.department_id);
         if (p.status !== undefined && statusIdx !== -1) sheet.getRange(rowNum, statusIdx + 1).setValue(p.status);
 
         AppUtils.invalidate('Classes');

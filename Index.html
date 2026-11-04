@@ -1135,7 +1135,7 @@ function loadModule(name){
               +'<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:16px;margin-bottom:18px;">'
                 +fld('الصف','<select id="cls-grade" class="form-input" required><option value="">— اختر الصف —</option><option>الصف الأول</option><option>الصف الثاني</option><option>الصف الثالث</option></select>')
                 +fld('اسم الفصل','<input type="text" id="cls-name" class="form-input" required placeholder="مثال: أ أو 1/1">')
-                +fld('القسم (تخصص الفصل)','<select id="cls-dept" class="form-input" required><option value="">جاري التحميل...</option></select>')
+                +fld('الفرع (المدرسة)','<select id="cls-branch" class="form-input" required><option value="">جاري التحميل...</option></select>')
               +'</div>'
               +'<div style="display:flex;gap:10px;align-items:center;">'
                 +'<button type="submit" id="cls-btn" class="btn-primary" style="width:auto;padding:9px 24px;"><i class="fas fa-graduation-cap" style="margin-left:8px;"></i>حفظ الفصل</button>'
@@ -1163,12 +1163,12 @@ function loadModule(name){
                 +'</select>'
               +'</div>'
               +'<div style="flex:1;min-width:160px;">'
-                +'<select id="cls-filter-dept" class="form-input" style="padding:7px 10px;font-size:0.78rem;" onchange="renderClassesList()">'
-                  +'<option value="">— جميع الأقسام —</option>'
+                +'<select id="cls-filter-branch" class="form-input" style="padding:7px 10px;font-size:0.78rem;" onchange="renderClassesList()">'
+                  +'<option value="">— جميع الفروع —</option>'
                 +'</select>'
               +'</div>'
               +'<div style="flex:1.5;min-width:180px;position:relative;">'
-                +'<input type="text" id="cls-filter-search" class="form-input" style="padding:7px 30px 7px 10px;font-size:0.78rem;" placeholder="ابحث باسم الفصل أو القسم..." oninput="renderClassesList()">'
+                +'<input type="text" id="cls-filter-search" class="form-input" style="padding:7px 30px 7px 10px;font-size:0.78rem;" placeholder="ابحث باسم الفصل أو الفرع..." oninput="renderClassesList()">'
                 +'<i class="fas fa-search" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:0.75rem;"></i>'
               +'</div>'
             +'</div>'
@@ -3811,21 +3811,30 @@ function submitDept(e){
 }
 
 var _classesList = [];
-var _classesDepts = [];
+var _classesBranches = [];
 
 function loadClassManager(){
-  loadDeptSelect('cls-dept');
   var listEl = document.getElementById('cls-list-container');
   if(!listEl) return;
   listEl.innerHTML = '<div style="text-align:center;padding:30px;"><i class="fas fa-spinner fa-spin" style="color:var(--sta-red);font-size:1.5rem;"></i><p style="color:var(--text-muted);margin-top:8px;font-size:0.8rem;">جاري تحميل الفصول...</p></div>';
 
   google.script.run
-    .withSuccessHandler(function(depts){
-      _classesDepts = depts || [];
-      var fDept = document.getElementById('cls-filter-dept');
-      if(fDept){
-        fDept.innerHTML = '<option value="">— جميع الأقسام —</option>' + _classesDepts.map(function(d){
-          return '<option value="'+esc(d.department_id)+'">'+esc(d.department_name)+'</option>';
+    .withSuccessHandler(function(branches){
+      _classesBranches = branches || [];
+      var bSel = document.getElementById('cls-branch');
+      if(bSel){
+        bSel.innerHTML = '<option value="">— اختر الفرع —</option>' + _classesBranches.map(function(b){
+          var bid = esc(b.branch_id || b.branch_name);
+          var bname = esc(b.branch_name || b.branch_id);
+          return '<option value="'+bid+'">'+bname+'</option>';
+        }).join('');
+      }
+      var fBran = document.getElementById('cls-filter-branch');
+      if(fBran){
+        fBran.innerHTML = '<option value="">— جميع الفروع —</option>' + _classesBranches.map(function(b){
+          var bid = esc(b.branch_id || b.branch_name);
+          var bname = esc(b.branch_name || b.branch_id);
+          return '<option value="'+bid+'">'+bname+'</option>';
         }).join('');
       }
       google.script.run
@@ -3839,9 +3848,9 @@ function loadClassManager(){
         .getClassesWithDetails();
     })
     .withFailureHandler(function(e){
-      if(listEl) listEl.innerHTML = errBox('خطأ في تحميل الأقسام: ' + esc(e.message||e));
+      if(listEl) listEl.innerHTML = errBox('خطأ في تحميل الفروع: ' + esc(e.message||e));
     })
-    .getDepartments();
+    .getBranches();
 }
 
 function renderClassesList(){
@@ -3849,17 +3858,24 @@ function renderClassesList(){
   if(!container) return;
 
   var filterGrade = (document.getElementById('cls-filter-grade') ? document.getElementById('cls-filter-grade').value.trim() : '');
-  var filterDept = (document.getElementById('cls-filter-dept') ? document.getElementById('cls-filter-dept').value.trim() : '');
+  var filterBranch = (document.getElementById('cls-filter-branch') ? document.getElementById('cls-filter-branch').value.trim() : '');
   var searchVal = (document.getElementById('cls-filter-search') ? document.getElementById('cls-filter-search').value.trim().toLowerCase() : '');
 
   var filtered = _classesList.filter(function(c){
     if(filterGrade && c.grade !== filterGrade) return false;
-    if(filterDept && c.department_id !== filterDept) return false;
+    if(filterBranch){
+      var bMatch = (c.branch_id === filterBranch) || 
+                   ((c.branch_name || '').toLowerCase() === filterBranch.toLowerCase()) ||
+                   ((c.school_branch || '').toLowerCase() === filterBranch.toLowerCase());
+      if(!bMatch) return false;
+    }
     if(searchVal){
       var nMatch = (c.class_name || '').toLowerCase().indexOf(searchVal) !== -1;
+      var bMatch = (c.branch_name || '').toLowerCase().indexOf(searchVal) !== -1 ||
+                   (c.school_branch || '').toLowerCase().indexOf(searchVal) !== -1;
       var dMatch = (c.department_name || '').toLowerCase().indexOf(searchVal) !== -1;
       var gMatch = (c.grade || '').toLowerCase().indexOf(searchVal) !== -1;
-      if(!nMatch && !dMatch && !gMatch) return false;
+      if(!nMatch && !bMatch && !dMatch && !gMatch) return false;
     }
     return true;
   });
@@ -3883,16 +3899,17 @@ function renderClassesList(){
           +'<th>#</th>'
           +'<th>اسم الفصل</th>'
           +'<th>الصف</th>'
-          +'<th>القسم (التخصص)</th>'
+          +'<th>الفرع</th>'
           +'<th style="text-align:center;">إجراءات</th>'
         +'</tr></thead>'
         +'<tbody>'
         +filtered.map(function(c, i){
+          var branchDisplay = c.branch_name || c.school_branch || c.department_name || '—';
           return '<tr style="transition:background 0.15s;">'
             +'<td style="color:var(--text-muted);font-weight:600;">'+(i+1)+'</td>'
             +'<td><span style="font-weight:800;color:var(--text-primary);font-size:0.9rem;">'+esc(c.class_name)+'</span></td>'
             +'<td><span class="badge" style="background:rgba(211,47,47,0.08);color:var(--sta-red);font-weight:700;padding:4px 10px;border-radius:20px;font-size:0.75rem;">'+esc(c.grade || '—')+'</span></td>'
-            +'<td><span style="font-weight:700;color:var(--text-secondary);">'+esc(c.department_name || '—')+'</span></td>'
+            +'<td><span style="font-weight:700;color:var(--text-secondary);">'+esc(branchDisplay)+'</span></td>'
             +'<td style="text-align:center;">'
               +'<div style="display:inline-flex;gap:8px;">'
                 +'<button type="button" onclick="editClassRow(\''+esc(c.class_id)+'\')" class="btn-outline" style="padding:5px 12px;font-size:0.75rem;display:flex;align-items:center;gap:4px;" title="تعديل">'
@@ -3919,7 +3936,7 @@ function editClassRow(classId){
   var editIdEl = document.getElementById('cls-edit-id');
   var nameEl = document.getElementById('cls-name');
   var gradeEl = document.getElementById('cls-grade');
-  var deptEl = document.getElementById('cls-dept');
+  var branchEl = document.getElementById('cls-branch');
   var titleEl = document.getElementById('cls-form-title');
   var subEl = document.getElementById('cls-form-subtitle');
   var btnEl = document.getElementById('cls-btn');
@@ -3928,7 +3945,18 @@ function editClassRow(classId){
   if(editIdEl) editIdEl.value = cls.class_id;
   if(nameEl) nameEl.value = cls.class_name;
   if(gradeEl) gradeEl.value = cls.grade;
-  if(deptEl) deptEl.value = cls.department_id;
+  if(branchEl){
+    branchEl.value = cls.branch_id || '';
+    if(!branchEl.value && (cls.branch_name || cls.school_branch)){
+      var bTarget = cls.branch_name || cls.school_branch;
+      for(var optIdx=0; optIdx<branchEl.options.length; optIdx++){
+        if(branchEl.options[optIdx].text === bTarget || branchEl.options[optIdx].value === bTarget){
+          branchEl.selectedIndex = optIdx;
+          break;
+        }
+      }
+    }
+  }
   if(titleEl) titleEl.textContent = 'تعديل فصل: ' + cls.class_name;
   if(subEl) subEl.textContent = 'تعديل بيانات الفصل المسجل';
   if(btnEl) btnEl.innerHTML = '<i class="fas fa-check" style="margin-left:8px;"></i>حفظ التعديلات';
@@ -3942,7 +3970,7 @@ function cancelClassEdit(){
   var editIdEl = document.getElementById('cls-edit-id');
   var nameEl = document.getElementById('cls-name');
   var gradeEl = document.getElementById('cls-grade');
-  var deptEl = document.getElementById('cls-dept');
+  var branchEl = document.getElementById('cls-branch');
   var titleEl = document.getElementById('cls-form-title');
   var subEl = document.getElementById('cls-form-subtitle');
   var btnEl = document.getElementById('cls-btn');
@@ -3951,7 +3979,7 @@ function cancelClassEdit(){
   if(editIdEl) editIdEl.value = '';
   if(nameEl) nameEl.value = '';
   if(gradeEl) gradeEl.value = '';
-  if(deptEl) deptEl.value = '';
+  if(branchEl) branchEl.value = '';
   if(titleEl) titleEl.textContent = 'فصل جديد';
   if(subEl) subEl.textContent = 'إضافة فصل جديد للنظام';
   if(btnEl) btnEl.innerHTML = '<i class="fas fa-graduation-cap" style="margin-left:8px;"></i>حفظ الفصل';
@@ -3981,13 +4009,13 @@ function removeClassRow(classId, className){
 function submitClass(e){
   e.preventDefault();
   var name = document.getElementById('cls-name').value.trim();
-  var dept = document.getElementById('cls-dept').value;
+  var branch = document.getElementById('cls-branch').value;
   var grd = document.getElementById('cls-grade').value;
   var editIdEl = document.getElementById('cls-edit-id');
   var editId = editIdEl ? editIdEl.value.trim() : '';
 
-  if(!name || !dept){
-    showModal('بيانات ناقصة', 'يرجى ملء اسم الفصل واختيار قسم.', true);
+  if(!name || !branch){
+    showModal('بيانات ناقصة', 'يرجى ملء اسم الفصل واختيار فرع المدرسة.', true);
     return;
   }
   btnState('cls-btn', true, 'جاري الحفظ...');
@@ -4009,7 +4037,7 @@ function submitClass(e){
         btnState('cls-btn', false, 'حفظ الفصل');
         showModal('خطأ', err.message || err, true);
       })
-      .updateClass(editId, { name: name, department_id: dept, grade: grd }, getAuthToken());
+      .updateClass(editId, { name: name, branch_id: branch, grade: grd }, getAuthToken());
   } else {
     google.script.run
       .withSuccessHandler(function(res){
@@ -4017,7 +4045,7 @@ function submitClass(e){
         if(res && res.success){
           showModal('تم الإضافة', 'تم حفظ الفصل "' + name + '" بنجاح.');
           document.getElementById('cls-name').value = '';
-          document.getElementById('cls-dept').value = '';
+          document.getElementById('cls-branch').value = '';
           document.getElementById('cls-grade').value = '';
           invalidateDropCache('Classes');
           loadClassManager();
@@ -4029,7 +4057,7 @@ function submitClass(e){
         btnState('cls-btn', false, 'حفظ الفصل');
         showModal('خطأ', err.message || err, true);
       })
-      .addNewClassRow({ name: name, department_id: dept, grade: grd }, getAuthToken());
+      .addNewClassRow({ name: name, branch_id: branch, grade: grd }, getAuthToken());
   }
 }
 

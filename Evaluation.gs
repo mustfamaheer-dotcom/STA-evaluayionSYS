@@ -53,11 +53,17 @@ function setupSheetHeaders() {
   if (clsSheet) {
     var lastCol = clsSheet.getLastColumn();
     var headers = lastCol > 0 ? clsSheet.getRange(1, 1, 1, lastCol).getValues()[0].map(function(h){ return h.toString().trim(); }) : [];
-    if (headers.indexOf('grade') === -1) {
-      clsSheet.getRange(1, lastCol + 1).setValue('grade');
-      clsSheet.getRange(1, lastCol + 1).setBackground('#212121');
-      clsSheet.getRange(1, lastCol + 1).setFontColor('#FFFFFF');
-      clsSheet.getRange(1, lastCol + 1).setFontWeight('bold');
+    var neededCols = ['grade', 'branch_id', 'school_branch'];
+    for (var k = 0; k < neededCols.length; k++) {
+      var col = neededCols[k];
+      if (headers.indexOf(col) === -1) {
+        lastCol++;
+        clsSheet.getRange(1, lastCol).setValue(col);
+        clsSheet.getRange(1, lastCol).setBackground('#212121');
+        clsSheet.getRange(1, lastCol).setFontColor('#FFFFFF');
+        clsSheet.getRange(1, lastCol).setFontWeight('bold');
+        headers.push(col);
+      }
     }
   }
   return 'Headers set successfully.';
