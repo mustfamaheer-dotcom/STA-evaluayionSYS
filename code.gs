@@ -1086,8 +1086,8 @@ function removeManagerDepartment(mgrDeptId, managerId, departmentId, branchId, o
  * Super Admins see ALL teachers.
  * Fallbacks safely so managers are never blocked from evaluating.
  */
-function getTeachersForCurrentManager(optionalToken) {
-  var callerEmail = _extractCallerEmail(optionalToken);
+function getTeachersForCurrentManager(optionalToken, optionalEmail) {
+  var callerEmail = _extractCallerEmail(optionalToken, optionalEmail);
   var allTeachers = getTeachers();
   if (!callerEmail) return allTeachers;
 
@@ -1219,8 +1219,8 @@ function getTeachersForCurrentManager(optionalToken) {
  * - branchDeptMap: mapping from 'BranchDepartments' sheet + teacher assignments
  * - teachers: teachers accessible to current manager (scoped by permissions)
  */
-function getEvaluationFormData(optionalToken) {
-  var callerEmail = _extractCallerEmail(optionalToken);
+function getEvaluationFormData(optionalToken, optionalEmail) {
+  var callerEmail = _extractCallerEmail(optionalToken, optionalEmail);
   if (callerEmail) {
     try {
       PermissionGuard.require(callerEmail, 'canEvaluate');
@@ -1274,10 +1274,10 @@ function getEvaluationFormData(optionalToken) {
     console.error('Error fetching departments in getEvaluationFormData: ' + errD);
   }
 
-  // 3. Teachers for current manager (pass token/callerEmail)
+  // 3. Teachers for current manager (scoped by permissions)
   var teachers = [];
   try {
-    teachers = getTeachersForCurrentManager(optionalToken || callerEmail);
+    teachers = getTeachersForCurrentManager(callerEmail || optionalToken, optionalEmail);
   } catch (errT) {
     console.error('getTeachersForCurrentManager error: ' + errT);
   }
@@ -1342,44 +1342,167 @@ function getEvaluationFormData(optionalToken) {
     }
   }
 
-  // Filter branches and departments for scoped managers (e.g. Branch Manager)
-  var isSuperAdminUser = false;
-  if (callerEmail) {
-    var uRole = (_resolveRole(callerEmail.toLowerCase().trim()) || '').toUpperCase();
-    if (uRole === 'ADMIN' || uRole === 'ROLE_SUPER_ADMIN' || uRole === 'SUPER_ADMIN' || uRole === 'مدير النظام') {
-      isSuperAdminUser = true;
+  // 5. Identify Manager and Manager Assignments
+  var mgrRows = AppUtils.sheetToObjects('Managers');
+  var currentMgrId = '';
+  var currentMgrRole = '';
+  for (var mi = 0; mi < mgrRows.length; mi++) {
+    var mEmail = (mgrRows[mi]['email'] || mgrRows[mi]['Email'] || mgrRows[mi]['البريد'] || '').toString().toLowerCase().trim();
+    var mst = (mgrRows[mi]['status'] || mgrRows[mi]['Status'] || mgrRows[mi]['الحالة'] || 'Active').toString().trim().toLowerCase();
+    if (_emailsMatch(mEmail, callerEmail) && (mst === 'active' || mst === '')) {
+      currentMgrId = (mgrRows[mi]['manager_id'] || mgrRows[mi]['Manager_ID'] || mgrRows[mi]['id'] || '').toString().trim();
+      currentMgrRole = (mgrRows[mi]['role'] || mgrRows[mi]['Role'] || mgrRows[mi]['الدور'] || '').toString().trim();
+      break;
     }
-    try {
-      var prof = _buildProfile(callerEmail);
-      if (prof && prof.permissions && prof.permissions.indexOf('canManageSystem') !== -1) {
-        isSuperAdminUser = true;
-      }
-    } catch(eP) {}
   }
 
-  if (!isSuperAdminUser && teachers && teachers.length > 0) {
-    var validBranchIds = {};
-    var validDeptIds = {};
+  var uRole = (_resolveRole(callerEmail ? callerEmail.toLowerCase().trim() : '') || '').toUpperCase();
+  var normRole = _normalizeRole(currentMgrRole || uRole);
+  var isSuperAdminUser = (normRole === 'ADMIN');
+  var isBranchManager = (normRole === 'BRANCH_MANAGER');
+  var isDeptManager = (normRole === 'MANAGER');
+
+  try {
+    var prof = _buildProfile(callerEmail);
+    if (prof && prof.permissions && prof.permissions.indexOf('canManageSystem') !== -1) {
+      isSuperAdminUser = true;
+    }
+  } catch(eP) {}
+
+  var mdRows = AppUtils.sheetToObjects('ManagerDepartments');
+  var assignedBranchMap = {};
+  var assignedDeptMap = {};
+  var assignedBranchList = [];
+  var assignedDeptList = [];
+
+  if (currentMgrId) {
+    for (var mdi = 0; mdi < mdRows.length; mdi++) {
+      var mdr = mdRows[mdi];
+      var mdSt = (mdr['status'] || mdr['Status'] || 'Active').toString().trim().toLowerCase();
+      if (mdSt !== 'active' && mdSt !== '') continue;
+
+      var rMgrId = (mdr['manager_id'] || mdr['Manager_ID'] || '').toString().trim();
+      if (rMgrId === currentMgrId) {
+        var dIdVal = (mdr['department_id'] || mdr['Department_ID'] || '').toString().trim();
+        var bIdVal = (mdr['branch_id'] || mdr['Branch_ID'] || '').toString().trim();
+
+        if (bIdVal && !assignedBranchMap[bIdVal]) {
+          assignedBranchMap[bIdVal] = true;
+          assignedBranchList.push(bIdVal);
+        }
+        if (dIdVal && !assignedDeptMap[dIdVal]) {
+          assignedDeptMap[dIdVal] = true;
+          assignedDeptList.push(dIdVal);
+        }
+      }
+    }
+  }
+
+  // 6. Filter branches and departments for scoped managers
+  if (isBranchManager) {
+    if (assignedBranchList.length > 0) {
+      var bmBranches = branches.filter(function(b) {
+        return assignedBranchMap[b.id] || assignedBranchMap[b.name] ||
+               assignedBranchList.some(function(ab) {
+                 return b.id === ab || b.name === ab || AppUtils.normalizeSchool(b.name) === AppUtils.normalizeSchool(ab);
+               });
+      });
+      if (bmBranches.length > 0) branches = bmBranches;
+    }
+    if (assignedDeptList.length > 0) {
+      var bmDepts = depts.filter(function(d) {
+        return assignedDeptMap[d.id] || assignedDeptMap[d.name] ||
+               assignedDeptList.some(function(ad) {
+                 return d.id === ad || d.name === ad || AppUtils.normalizeDept(d.name) === AppUtils.normalizeDept(ad);
+               });
+      });
+      if (bmDepts.length > 0) depts = bmDepts;
+    }
+  } else if (!isSuperAdminUser && teachers && teachers.length > 0) {
+    var validBranchMap = {};
     for (var vti = 0; vti < teachers.length; vti++) {
-      var vt = teachers[vti];
-      if (vt.branchId) validBranchIds[vt.branchId] = true;
-      if (vt.school) validBranchIds[vt.school.toLowerCase()] = true;
-      if (vt.deptId) validDeptIds[vt.deptId] = true;
-      if (vt.dept) validDeptIds[vt.dept.toLowerCase()] = true;
+      if (teachers[vti].branchId) validBranchMap[teachers[vti].branchId] = true;
+      if (teachers[vti].school) validBranchMap[teachers[vti].school.toLowerCase()] = true;
     }
-
     if (branches && branches.length > 0) {
-      var scopedBranches = branches.filter(function(b) {
-        return validBranchIds[b.id] || validBranchIds[b.name.toLowerCase()];
+      var mgrBranches = branches.filter(function(b) {
+        return validBranchMap[b.id] || validBranchMap[b.name.toLowerCase()];
       });
-      if (scopedBranches.length > 0) branches = scopedBranches;
+      if (mgrBranches.length > 0) branches = mgrBranches;
     }
-
-    if (depts && depts.length > 0) {
-      var scopedDepts = depts.filter(function(d) {
-        return validDeptIds[d.id] || validDeptIds[d.name.toLowerCase()];
+    if (assignedDeptList.length > 0) {
+      var mgrDepts = depts.filter(function(d) {
+        return assignedDeptMap[d.id] || assignedDeptMap[d.name] ||
+               assignedDeptList.some(function(ad) {
+                 return d.id === ad || d.name === ad || AppUtils.normalizeDept(d.name) === AppUtils.normalizeDept(ad);
+               });
       });
-      if (scopedDepts.length > 0) depts = scopedDepts;
+      if (mgrDepts.length > 0) depts = mgrDepts;
+    }
+  }
+
+  // 7. Resolve defaultBranchId and defaultDeptId
+  var defaultBranchId = '';
+  if (assignedBranchList.length > 0) {
+    for (var abi = 0; abi < assignedBranchList.length; abi++) {
+      var abId = assignedBranchList[abi];
+      var matchB = branches.find(function(b){
+        return b.id === abId || b.name.toLowerCase() === abId.toLowerCase() || AppUtils.normalizeSchool(b.name) === AppUtils.normalizeSchool(abId);
+      });
+      if (matchB) {
+        defaultBranchId = matchB.id;
+        break;
+      }
+    }
+    if (!defaultBranchId && branches.length > 0) {
+      defaultBranchId = branches[0].id;
+    }
+  } else if (!isSuperAdminUser && branches.length === 1) {
+    defaultBranchId = branches[0].id;
+  }
+
+  if (!defaultBranchId && !isSuperAdminUser && teachers && teachers.length > 0) {
+    var teacherBranches = {};
+    for (var tbi = 0; tbi < teachers.length; tbi++) {
+      if (teachers[tbi].branchId) teacherBranches[teachers[tbi].branchId] = true;
+    }
+    var tbKeys = Object.keys(teacherBranches);
+    if (tbKeys.length === 1) {
+      defaultBranchId = tbKeys[0];
+    } else if (branches.length === 1) {
+      defaultBranchId = branches[0].id;
+    }
+  }
+
+  var defaultDeptId = '';
+  if (assignedDeptList.length > 0) {
+    for (var adi = 0; adi < assignedDeptList.length; adi++) {
+      var adId = assignedDeptList[adi];
+      var matchD = depts.find(function(d){
+        return d.id === adId || d.name.toLowerCase() === adId.toLowerCase() || AppUtils.normalizeDept(d.name) === AppUtils.normalizeDept(adId);
+      });
+      if (matchD) {
+        defaultDeptId = matchD.id;
+        break;
+      }
+    }
+    if (!defaultDeptId && depts.length > 0) {
+      defaultDeptId = depts[0].id;
+    }
+  } else if (!isSuperAdminUser && depts.length === 1) {
+    defaultDeptId = depts[0].id;
+  }
+
+  if (!defaultDeptId && !isSuperAdminUser && teachers && teachers.length > 0) {
+    var teacherDepts = {};
+    for (var tdi = 0; tdi < teachers.length; tdi++) {
+      if (teachers[tdi].deptId) teacherDepts[teachers[tdi].deptId] = true;
+    }
+    var tdKeys = Object.keys(teacherDepts);
+    if (tdKeys.length === 1) {
+      defaultDeptId = tdKeys[0];
+    } else if (depts.length === 1) {
+      defaultDeptId = depts[0].id;
     }
   }
 
@@ -1387,7 +1510,11 @@ function getEvaluationFormData(optionalToken) {
     branches: branches,
     departments: depts,
     branchDeptMap: branchDeptMap,
-    teachers: teachers || []
+    teachers: teachers || [],
+    defaultBranchId: defaultBranchId,
+    defaultDeptId: defaultDeptId,
+    managerRole: normRole,
+    isBranchManager: isBranchManager
   };
 }
 

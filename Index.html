@@ -3263,9 +3263,10 @@ function loadTeacherAndGradeDropdowns(retryCount){
       }
       branchSel.innerHTML = bo;
 
-      if(data.branches.length === 1){
-        branchSel.value = data.branches[0].id;
-        onBranchChange();
+      var targetBranch = data.defaultBranchId || (data.branches.length === 1 ? data.branches[0].id : '');
+      if(targetBranch){
+        branchSel.value = targetBranch;
+        onBranchChange(data.defaultDeptId);
       }
     })
     .withFailureHandler(function(e){
@@ -3297,7 +3298,7 @@ function loadTeacherAndGradeDropdowns(retryCount){
         }
       }
     })
-    .getEvaluationFormData(tok);
+    .getEvaluationFormData(tok, getAuthEmail());
 }
 
 /* ── Evaluation form interactions ────────────────────────────────────────── */
@@ -3507,7 +3508,7 @@ function _matchDept(t, deptId, deptName){
   return false;
 }
 
-function onBranchChange(){
+function onBranchChange(preferredDeptId){
   var branchId=v('basic-branch');
   var deptSel=document.getElementById('basic-dept');
   var nameSel=document.getElementById('basic-name');
@@ -3570,8 +3571,20 @@ function onBranchChange(){
       deptSel.innerHTML=dHtml;
       deptSel.disabled=false;
 
-      if(availableDepts.length===1){
-        deptSel.value=availableDepts[0].id;
+      var targetDept = preferredDeptId || (_evalFormData && _evalFormData.defaultDeptId) || '';
+      var matchedDeptId = '';
+      if(targetDept){
+        var found = availableDepts.find(function(d){
+          return d.id === targetDept || d.name === targetDept || _cleanDept(d.name) === _cleanDept(targetDept);
+        });
+        if(found) matchedDeptId = found.id;
+      }
+      if(!matchedDeptId && availableDepts.length === 1){
+        matchedDeptId = availableDepts[0].id;
+      }
+
+      if(matchedDeptId){
+        deptSel.value = matchedDeptId;
         onDeptChange();
         return;
       }
