@@ -1668,7 +1668,7 @@ function filterManagerCards(){
     var initials = (mgr.name || mgr.email || '?').substring(0,2).toUpperCase();
     var roleLabel = mgr.role || 'مدير';
     var isSuper = (roleLabel === 'ADMIN' || roleLabel === 'ROLE_SUPER_ADMIN' || roleLabel === 'SUPER_ADMIN' || roleLabel === 'مدير النظام');
-    var isBranchMgr = (roleLabel === 'مدير فرع' || roleLabel === 'BRANCH_MANAGER');
+    var isBranchMgr = (roleLabel === 'مدير فرع' || roleLabel === 'BRANCH_MANAGER' || mgr.isBranchManager || (mgr.name && mgr.name.toLowerCase().indexOf('branch') !== -1) || (mgr.assignments && mgr.assignments.length > 0 && mgr.assignments.every(function(a){ return a.branchId && a.branchId !== 'all'; })));
     var badgeClass = isSuper ? 'badge-excellent' : (isBranchMgr ? 'badge-average' : 'badge-good');
 
     var branchGroups = {};
@@ -1693,9 +1693,14 @@ function filterManagerCards(){
               +esc(initials)
             +'</div>'
             +'<div>'
-              +'<div style="display:flex;align-items:center;gap:8px;">'
+              +'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">'
                 +'<span style="font-size:0.95rem;font-weight:800;color:var(--text-primary);">'+esc(mgr.name)+'</span>'
-                +'<span class="badge '+badgeClass+'" style="font-size:0.65rem;">'+esc(roleLabel)+'</span>'
+                +'<span class="badge '+badgeClass+'" style="font-size:0.65rem;">'+(isSuper ? 'مدير النظام' : (isBranchMgr ? 'مدير فرع' : 'مدير قسم'))+'</span>'
+                +'<select class="form-input" style="font-size:0.68rem;padding:2px 8px;width:auto;height:24px;border-radius:6px;cursor:pointer;" onchange="onManagerRoleChange(\''+esc(mgr.managerId)+'\', this.value)" title="تغيير دور المدير">'
+                  +'<option value="مدير فرع" '+(isBranchMgr && !isSuper ? 'selected' : '')+'>مدير فرع</option>'
+                  +'<option value="مدير" '+(!isBranchMgr && !isSuper ? 'selected' : '')+'>مدير قسم</option>'
+                  +'<option value="ADMIN" '+(isSuper ? 'selected' : '')+'>مدير النظام</option>'
+                +'</select>'
               +'</div>'
               +'<div style="font-size:0.75rem;color:var(--text-muted);margin-top:2px;">'
                 +'<i class="fas fa-envelope" style="margin-left:4px;font-size:0.7rem;"></i>'+esc(mgr.email)
@@ -1897,6 +1902,24 @@ function removeManagerDeptAssign(mgrDeptId, mgrName, deptName, branchName, mgrId
       })
       .removeManagerDepartment(mgrDeptId, mgrId || '', deptId || '', branchId || '', getAuthToken());
   });
+}
+
+function onManagerRoleChange(mgrId, newRole){
+  showModal('جاري التحديث', 'جاري تحديث دور المدير...');
+  var tok = getAuthToken();
+  google.script.run
+    .withSuccessHandler(function(r){
+      if(r && r.success){
+        showModal('تم التحديث', 'تم تغيير دور المدير بنجاح إلى: ' + r.role);
+        loadManagerDeptAssignPage();
+      } else {
+        showModal('خطأ', (r && r.error) || 'تعذر تحديث الدور', true);
+      }
+    })
+    .withFailureHandler(function(e){
+      showModal('خطأ في الخادم', 'خطأ: ' + esc(e.message || e), true);
+    })
+    .updateManagerRole(mgrId, newRole, tok);
 }
 
 /* ══════════════════════════════════════════════════════════════════════════

@@ -321,6 +321,7 @@ function _normalizeRole(rawRole) {
 
   // Branch Manager (MUST precede general manager check)
   if (upper === 'BRANCH_MANAGER' || upper === 'BRANCH-MANAGER' || upper === 'BRANCHMANAGER' ||
+      upper.indexOf('BRANCH') !== -1 ||
       str === 'مدير فرع' || str.indexOf('مدير فرع') !== -1 ||
       str === 'مدير الفرع' || str.indexOf('مدير الفرع') !== -1) {
     return 'BRANCH_MANAGER';

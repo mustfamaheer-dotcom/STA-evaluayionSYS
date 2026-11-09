@@ -178,25 +178,23 @@ function submitEvaluation(payload, optionalToken) {
             var asgn = managerAssignments[mai];
             var aDept = (asgn['department_id'] || '').toString().trim();
             var aBranch = (asgn['branch_id'] || '').toString().trim();
+            var isAllBranches = (!aBranch || aBranch.toLowerCase() === 'all' || aBranch === 'جميع الفروع');
 
             var deptMatches = (!aDept) || (aDept === teacherDeptId) || 
-                              (teacherRecord['position'] && teacherRecord['position'].toLowerCase().indexOf(aDept.toLowerCase()) !== -1);
-            var branchMatches = (!aBranch) || (aBranch === teacherBranchId) || 
-                                (teacherRecord['school_branch'] && teacherRecord['school_branch'].toLowerCase().indexOf(aBranch.toLowerCase()) !== -1);
+                              (teacherRecord['position'] && teacherRecord['position'].toLowerCase().indexOf(aDept.toLowerCase()) !== -1) ||
+                              (teacherRecord['position'] && AppUtils.normalizeDept(teacherRecord['position']) === AppUtils.normalizeDept(aDept));
+            var branchMatches = isAllBranches || (aBranch === teacherBranchId) || 
+                                (teacherRecord['school_branch'] && teacherRecord['school_branch'].toLowerCase().indexOf(aBranch.toLowerCase()) !== -1) ||
+                                (teacherRecord['school_branch'] && AppUtils.normalizeSchool(teacherRecord['school_branch']) === AppUtils.normalizeSchool(aBranch));
 
-            if (isDeptMgr) {
-              // "مدير" (Department Manager): can evaluate his department in ANY branch
+            if (isDeptMgr && isAllBranches) {
+              // "مدير" (Department Manager with ALL branches assigned)
               if (deptMatches) {
                 hasPermission = true;
                 break;
               }
-            } else if (isBranchMgr) {
-              // "مدير فرع" (Branch Manager): can ONLY evaluate in the branch he manages
-              if (deptMatches && branchMatches && aBranch) {
-                hasPermission = true;
-                break;
-              }
             } else {
+              // Specific branch assignment: must match both department AND branch
               if (deptMatches && branchMatches) {
                 hasPermission = true;
                 break;

@@ -1145,17 +1145,19 @@ function getTeachersForCurrentManager(optionalToken, optionalEmail) {
       var bId = (r['branch_id'] || '').toString().trim();
       hasAnyAssignment = true;
 
-      if (isDeptMgr) {
-        // "مدير" (Department Manager): can evaluate employees in this department in ANY branch
+      var isAllBranches = (!bId || bId.toLowerCase() === 'all' || bId === 'جميع الفروع');
+
+      if (isDeptMgr && isAllBranches) {
+        // "مدير" (Department Manager with ALL branches): can evaluate employees in this department in ANY branch
         if (dId) allowedDepts[dId] = true;
-        if (bId) allowedBranches[bId] = true;
-        if (dId && bId) allowedKeys[dId + '|' + bId] = true;
-      } else if (isBranchMgr) {
-        // "مدير فرع" (Branch Manager): can ONLY evaluate employees in the department he manages IN HIS BRANCH ONLY
+      } else if (isBranchMgr || !isAllBranches) {
+        // Specific branch assignment: strictly restricted to this branch and department
         if (dId && bId) {
           allowedKeys[dId + '|' + bId] = true;
         } else if (!dId && bId) {
           allowedBranches[bId] = true;
+        } else if (dId && !bId) {
+          allowedDepts[dId] = true;
         }
       } else {
         if (dId && bId) {
@@ -1179,32 +1181,29 @@ function getTeachersForCurrentManager(optionalToken, optionalEmail) {
     var did = t.deptId;
     var bid = t.branchId;
 
-    if (isBranchMgr) {
-      // Branch Manager MUST strictly match his assigned branch
-      if (allowedKeys[did + '|' + bid]) return true;
-      if (allowedKeys[t.dept + '|' + t.school]) return true;
-      if (allowedKeys[did + '|' + t.school]) return true;
-      if (allowedKeys[t.dept + '|' + bid]) return true;
-      if (allowedBranches[bid] || allowedBranches[t.school]) return true;
-      return false;
-    }
-
-    if (isDeptMgr) {
-      // Department Manager matches if the teacher belongs to the department, regardless of branch
-      if (allowedDepts[did] || allowedDepts[t.dept]) return true;
-      if (allowedKeys[did + '|' + bid]) return true;
-      if (allowedKeys[t.dept + '|' + t.school]) return true;
-      if (allowedKeys[did + '|' + t.school]) return true;
-      if (allowedKeys[t.dept + '|' + bid]) return true;
-      return false;
-    }
-
-    if (allowedDepts[did] || allowedDepts[t.dept]) return true;
-    if (allowedBranches[bid] || allowedBranches[t.school]) return true;
     if (allowedKeys[did + '|' + bid]) return true;
     if (allowedKeys[t.dept + '|' + t.school]) return true;
     if (allowedKeys[did + '|' + t.school]) return true;
     if (allowedKeys[t.dept + '|' + bid]) return true;
+
+    for (var k in allowedKeys) {
+      var parts = k.split('|');
+      var kDept = parts[0];
+      var kBranch = parts[1];
+      var dMatch = (did === kDept || t.dept === kDept || AppUtils.normalizeDept(t.dept) === AppUtils.normalizeDept(kDept) || AppUtils.normalizeDept(t.spec) === AppUtils.normalizeDept(kDept));
+      var bMatch = (bid === kBranch || t.school === kBranch || AppUtils.normalizeSchool(t.school) === AppUtils.normalizeSchool(kBranch));
+      if (dMatch && bMatch) return true;
+    }
+
+    if (allowedDepts[did] || allowedDepts[t.dept] || 
+        Object.keys(allowedDepts).some(function(ad) { return AppUtils.normalizeDept(t.dept) === AppUtils.normalizeDept(ad); })) {
+      return true;
+    }
+
+    if (allowedBranches[bid] || allowedBranches[t.school] ||
+        Object.keys(allowedBranches).some(function(ab) { return AppUtils.normalizeSchool(t.school) === AppUtils.normalizeSchool(ab); })) {
+      return true;
+    }
 
     return false;
   });
@@ -1399,7 +1398,12 @@ function getEvaluationFormData(optionalToken, optionalEmail) {
   }
 
   // 6. Filter branches and departments for scoped managers
-  if (isBranchManager) {
+  var hasSpecificBranchOnly = assignedBranchList.length > 0 && assignedBranchList.every(function(b){
+    var bStr = b.toString().toLowerCase().trim();
+    return bStr && bStr !== 'all' && bStr !== 'جميع الفروع';
+  });
+  if (isBranchManager || hasSpecificBranchOnly) {
+    isBranchManager = true;
     if (assignedBranchList.length > 0) {
       var bmBranches = branches.filter(function(b) {
         return assignedBranchMap[b.id] || assignedBranchMap[b.name] ||
@@ -1548,7 +1552,9 @@ function getManagersWithDepartments(optionalToken) {
       activeEmployees.push({
         id: (emp['employee_id'] || '').toString().trim(),
         deptId: (emp['department_id'] || '').toString().trim(),
-        branchId: (emp['branch_id'] || '').toString().trim()
+        branchId: (emp['branch_id'] || '').toString().trim(),
+        school: (emp['school_branch'] || '').toString().trim(),
+        position: (emp['position'] || '').toString().trim()
       });
     }
   }
@@ -1585,38 +1591,103 @@ function getManagersWithDepartments(optionalToken) {
 
     // Calculate scoped teachers
     var scopedTeacherSet = {};
-    var mgrRoleNorm = _normalizeRole(mgr['role'] || 'مدير');
-    var isDeptMgr = (mgrRoleNorm === 'MANAGER');
+    var rawRole = (mgr['role'] || 'مدير').toString().trim();
+    var mgrName = (mgr['name'] || '').toString().trim();
+    var mgrRoleNorm = _normalizeRole(rawRole);
+
+    // Auto-detect branch manager: if role is BRANCH_MANAGER, OR if name/role has "branch" or "فرع",
+    // OR if all manager's assignments are for specific branch(es) (not 'all')
+    var hasSpecificBranchOnly = assignments.length > 0 && assignments.every(function(asgn){
+      var b = (asgn.branchId || '').toLowerCase().trim();
+      return b && b !== 'all' && b !== 'جميع الفروع';
+    });
+    var isBranchMgr = (mgrRoleNorm === 'BRANCH_MANAGER') || 
+                      (rawRole.toLowerCase().indexOf('branch') !== -1) ||
+                      (mgrName.toLowerCase().indexOf('branch') !== -1) ||
+                      hasSpecificBranchOnly;
+    var isDeptMgr = !isBranchMgr && (mgrRoleNorm === 'MANAGER');
 
     for (var a = 0; a < assignments.length; a++) {
       var asgn = assignments[a];
+      var asgnBranch = (asgn.branchId || '').toString().trim();
+      var asgnBranchName = (asgn.branchName || branchMap[asgnBranch] || asgnBranch).toString().trim();
+      var asgnDept = (asgn.departmentId || '').toString().trim();
+      var asgnDeptName = (asgn.departmentName || deptMap[asgnDept] || asgnDept).toString().trim();
+      var isAllBranches = (!asgnBranch || asgnBranch.toLowerCase() === 'all' || asgnBranch === 'جميع الفروع');
+
       for (var e = 0; e < activeEmployees.length; e++) {
         var emp = activeEmployees[e];
-        if (isDeptMgr) {
-          // Department manager: any teacher in this department across all branches
-          if (emp.deptId === asgn.departmentId) {
-            scopedTeacherSet[emp.id] = true;
-          }
+        var deptMatch = (!asgnDept) || (emp.deptId === asgnDept) ||
+                        (emp.deptId && deptMap[emp.deptId] === asgnDeptName) ||
+                        (emp.position && asgnDeptName && AppUtils.normalizeDept(emp.position) === AppUtils.normalizeDept(asgnDeptName));
+        if (!deptMatch) continue;
+
+        if (isAllBranches && !isBranchMgr) {
+          // Department manager with ALL branches: any teacher in this department
+          scopedTeacherSet[emp.id] = true;
         } else {
-          // Branch manager: teacher must be in this specific branch and department
-          if (emp.deptId === asgn.departmentId && emp.branchId === asgn.branchId) {
+          // Specific branch assignment: teacher must be in this specific branch
+          var branchMatch = (emp.branchId === asgnBranch) ||
+                            (emp.school && asgnBranchName && AppUtils.normalizeSchool(emp.school) === AppUtils.normalizeSchool(asgnBranchName)) ||
+                            (asgnBranch && emp.school && AppUtils.normalizeSchool(emp.school) === AppUtils.normalizeSchool(asgnBranch));
+          if (branchMatch) {
             scopedTeacherSet[emp.id] = true;
           }
         }
       }
     }
 
+    var displayRole = (mgrRoleNorm === 'ADMIN') ? 'مدير النظام' : (isBranchMgr ? 'مدير فرع' : 'مدير');
     result.push({
       managerId:          mgrId,
-      name:               (mgr['name'] || '').toString().trim(),
+      name:               mgrName,
       email:              (mgr['email'] || '').toString().trim(),
-      role:               (mgr['role'] || 'مدير').toString().trim(),
+      role:               displayRole,
+      rawRole:            rawRole,
+      isBranchManager:    isBranchMgr,
       assignments:        assignments,
       scopedTeacherCount: Object.keys(scopedTeacherSet).length
     });
   }
 
   return result;
+}
+
+/**
+ * Updates a manager's role in the Managers sheet
+ */
+function updateManagerRole(managerId, newRole, optionalToken) {
+  var callerEmail = _extractCallerEmail(optionalToken);
+  PermissionGuard.require(callerEmail, 'canManageSystem');
+
+  var mId = (managerId || '').toString().trim();
+  if (!mId) return { success: false, error: 'معرف المدير مطلوب' };
+
+  var norm = _normalizeRole(newRole);
+  var roleLabel = norm === 'ADMIN' ? 'مدير النظام' : (norm === 'BRANCH_MANAGER' ? 'مدير فرع' : 'مدير');
+
+  var ss = AppUtils.getDB();
+  var sheet = ss.getSheetByName('Managers');
+  if (!sheet) return { success: false, error: 'الصفحة غير موجودة: Managers' };
+
+  var data = sheet.getDataRange().getValues();
+  var headers = data[0].map(function(h) { return h.toString().trim(); });
+  var idIdx = headers.indexOf('manager_id');
+  var roleIdx = headers.indexOf('role');
+
+  if (idIdx === -1 || roleIdx === -1) return { success: false, error: 'أعمدة غير صحيحة' };
+
+  for (var i = 1; i < data.length; i++) {
+    if ((data[i][idIdx] || '').toString().trim() === mId) {
+      sheet.getRange(i + 1, roleIdx + 1).setValue(roleLabel);
+      AppUtils.invalidate('Managers');
+      _profileCache = {};
+      AppUtils.writeLog(callerEmail, 'UPDATE_MANAGER_ROLE', 'Managers', 'Manager ' + mId + ' role -> ' + roleLabel, 'SUCCESS');
+      return { success: true, role: roleLabel };
+    }
+  }
+
+  return { success: false, error: 'المدير غير موجود' };
 }
 
 /**
