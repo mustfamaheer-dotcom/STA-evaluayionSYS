@@ -319,6 +319,13 @@ function _normalizeRole(rawRole) {
     return 'ADMIN';
   }
 
+  // Branch Manager (MUST precede general manager check)
+  if (upper === 'BRANCH_MANAGER' || upper === 'BRANCH-MANAGER' || upper === 'BRANCHMANAGER' ||
+      str === 'مدير فرع' || str.indexOf('مدير فرع') !== -1 ||
+      str === 'مدير الفرع' || str.indexOf('مدير الفرع') !== -1) {
+    return 'BRANCH_MANAGER';
+  }
+
   // Manager
   if (upper === 'MANAGER' || str === 'مدير' || str.indexOf('مدير') !== -1) {
     return 'MANAGER';
@@ -344,7 +351,7 @@ function _resolveRole(emailLower) {
       if (_emailsMatch(mEmail, emailLower) && (mStatus === 'active' || mStatus === '')) {
         var rawRole = (r['role'] || r['role_id'] || r['Role'] || r['الدور'] || r['الصلاحية'] || '').toString().trim();
         var norm = _normalizeRole(rawRole);
-        if (norm === 'ADMIN' || norm === 'MANAGER') {
+        if (norm === 'ADMIN' || norm === 'MANAGER' || norm === 'BRANCH_MANAGER') {
           return norm;
         }
         foundManagerRole = norm;
@@ -371,6 +378,7 @@ function _resolveRole(emailLower) {
 function _getRoleLabel(role) {
   var norm = _normalizeRole(role);
   if (norm === 'ADMIN') return 'مدير النظام';
+  if (norm === 'BRANCH_MANAGER') return 'مدير فرع';
   if (norm === 'MANAGER') return 'مدير';
   return 'معلم';
 }
@@ -397,7 +405,7 @@ function _resolvePermissions(role) {
     ['canViewDashboard', 'canEvaluate', 'canAddInstructor', 'canManageSystem'].forEach(function(p){
       if (permissions.indexOf(p) === -1) permissions.push(p);
     });
-  } else if (norm === 'MANAGER') {
+  } else if (norm === 'MANAGER' || norm === 'BRANCH_MANAGER') {
     ['canViewDashboard', 'canEvaluate'].forEach(function(p){
       if (permissions.indexOf(p) === -1) permissions.push(p);
     });

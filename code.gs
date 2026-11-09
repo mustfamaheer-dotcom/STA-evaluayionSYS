@@ -970,8 +970,26 @@ function addManagerDepartment(managerId, departmentId, branchId, optionalToken) 
   var dId = (departmentId || '').toString().trim();
   var bId = (branchId || '').toString().trim();
 
-  if (!mId || !dId || !bId) {
-    return { success: false, error: 'جميع الحقول مطلوبة (المدير، القسم، الفرع)' };
+  if (!mId || !dId) {
+    return { success: false, error: 'المدير والقسم مطلوبان' };
+  }
+
+  // Find manager role
+  var mgrRows = AppUtils.sheetToObjects('Managers');
+  var mRole = '';
+  for (var mi = 0; mi < mgrRows.length; mi++) {
+    if ((mgrRows[mi]['manager_id'] || '').toString().trim() === mId) {
+      mRole = (mgrRows[mi]['role'] || '').toString().trim();
+      break;
+    }
+  }
+
+  var isBranchMgr = (_normalizeRole(mRole) === 'BRANCH_MANAGER');
+  if (isBranchMgr && (!bId || bId === 'all')) {
+    return { success: false, error: 'تحديد الفرع مطلوب لمدير الفرع' };
+  }
+  if (!isBranchMgr && bId === 'all') {
+    bId = '';
   }
 
   var mds = AppUtils.sheetToObjects('ManagerDepartments');
@@ -983,7 +1001,7 @@ function addManagerDepartment(managerId, departmentId, branchId, optionalToken) 
     if ((r['manager_id'] || '').toString().trim() === mId &&
         (r['department_id'] || '').toString().trim() === dId &&
         (r['branch_id'] || '').toString().trim() === bId) {
-      return { success: false, error: 'هذا القسم مضاف بالفعل لهذا المدير في هذا الفرع' };
+      return { success: false, error: 'هذا التعيين مضاف بالفعل لهذا المدير' };
     }
   }
 
@@ -1087,14 +1105,16 @@ function getTeachersForCurrentManager(optionalToken) {
     return allTeachers;
   }
 
-  // Find manager ID
+  // Find manager ID and role
   var mgrRows = AppUtils.sheetToObjects('Managers');
   var currentMgrId = '';
+  var currentMgrRole = '';
   for (var mi = 0; mi < mgrRows.length; mi++) {
     var mEmail = (mgrRows[mi]['email'] || '').toString().toLowerCase().trim();
     var mst = (mgrRows[mi]['status'] || 'Active').toString().trim().toLowerCase();
     if (_emailsMatch(mEmail, callerEmail) && (mst === 'active' || mst === '')) {
       currentMgrId = (mgrRows[mi]['manager_id'] || '').toString().trim();
+      currentMgrRole = (mgrRows[mi]['role'] || '').toString().trim();
       break;
     }
   }
@@ -1103,6 +1123,10 @@ function getTeachersForCurrentManager(optionalToken) {
   if (!currentMgrId) {
     return allTeachers;
   }
+
+  var normRole = _normalizeRole(currentMgrRole || userRole);
+  var isBranchMgr = (normRole === 'BRANCH_MANAGER');
+  var isDeptMgr   = (normRole === 'MANAGER');
 
   // Get active manager assignments
   var mdRows = AppUtils.sheetToObjects('ManagerDepartments');
@@ -1121,12 +1145,26 @@ function getTeachersForCurrentManager(optionalToken) {
       var bId = (r['branch_id'] || '').toString().trim();
       hasAnyAssignment = true;
 
-      if (dId && bId) {
-        allowedKeys[dId + '|' + bId] = true;
-      } else if (dId && !bId) {
-        allowedDepts[dId] = true;
-      } else if (!dId && bId) {
-        allowedBranches[bId] = true;
+      if (isDeptMgr) {
+        // "مدير" (Department Manager): can evaluate employees in this department in ANY branch
+        if (dId) allowedDepts[dId] = true;
+        if (bId) allowedBranches[bId] = true;
+        if (dId && bId) allowedKeys[dId + '|' + bId] = true;
+      } else if (isBranchMgr) {
+        // "مدير فرع" (Branch Manager): can ONLY evaluate employees in the department he manages IN HIS BRANCH ONLY
+        if (dId && bId) {
+          allowedKeys[dId + '|' + bId] = true;
+        } else if (!dId && bId) {
+          allowedBranches[bId] = true;
+        }
+      } else {
+        if (dId && bId) {
+          allowedKeys[dId + '|' + bId] = true;
+        } else if (dId && !bId) {
+          allowedDepts[dId] = true;
+        } else if (!dId && bId) {
+          allowedBranches[bId] = true;
+        }
       }
     }
   }
@@ -1141,6 +1179,26 @@ function getTeachersForCurrentManager(optionalToken) {
     var did = t.deptId;
     var bid = t.branchId;
 
+    if (isBranchMgr) {
+      // Branch Manager MUST strictly match his assigned branch
+      if (allowedKeys[did + '|' + bid]) return true;
+      if (allowedKeys[t.dept + '|' + t.school]) return true;
+      if (allowedKeys[did + '|' + t.school]) return true;
+      if (allowedKeys[t.dept + '|' + bid]) return true;
+      if (allowedBranches[bid] || allowedBranches[t.school]) return true;
+      return false;
+    }
+
+    if (isDeptMgr) {
+      // Department Manager matches if the teacher belongs to the department, regardless of branch
+      if (allowedDepts[did] || allowedDepts[t.dept]) return true;
+      if (allowedKeys[did + '|' + bid]) return true;
+      if (allowedKeys[t.dept + '|' + t.school]) return true;
+      if (allowedKeys[did + '|' + t.school]) return true;
+      if (allowedKeys[t.dept + '|' + bid]) return true;
+      return false;
+    }
+
     if (allowedDepts[did] || allowedDepts[t.dept]) return true;
     if (allowedBranches[bid] || allowedBranches[t.school]) return true;
     if (allowedKeys[did + '|' + bid]) return true;
@@ -1151,7 +1209,7 @@ function getTeachersForCurrentManager(optionalToken) {
     return false;
   });
 
-  return (filtered && filtered.length > 0) ? filtered : allTeachers;
+  return (filtered && filtered.length > 0) ? filtered : [];
 }
 
 /**
@@ -1284,6 +1342,47 @@ function getEvaluationFormData(optionalToken) {
     }
   }
 
+  // Filter branches and departments for scoped managers (e.g. Branch Manager)
+  var isSuperAdminUser = false;
+  if (callerEmail) {
+    var uRole = (_resolveRole(callerEmail.toLowerCase().trim()) || '').toUpperCase();
+    if (uRole === 'ADMIN' || uRole === 'ROLE_SUPER_ADMIN' || uRole === 'SUPER_ADMIN' || uRole === 'مدير النظام') {
+      isSuperAdminUser = true;
+    }
+    try {
+      var prof = _buildProfile(callerEmail);
+      if (prof && prof.permissions && prof.permissions.indexOf('canManageSystem') !== -1) {
+        isSuperAdminUser = true;
+      }
+    } catch(eP) {}
+  }
+
+  if (!isSuperAdminUser && teachers && teachers.length > 0) {
+    var validBranchIds = {};
+    var validDeptIds = {};
+    for (var vti = 0; vti < teachers.length; vti++) {
+      var vt = teachers[vti];
+      if (vt.branchId) validBranchIds[vt.branchId] = true;
+      if (vt.school) validBranchIds[vt.school.toLowerCase()] = true;
+      if (vt.deptId) validDeptIds[vt.deptId] = true;
+      if (vt.dept) validDeptIds[vt.dept.toLowerCase()] = true;
+    }
+
+    if (branches && branches.length > 0) {
+      var scopedBranches = branches.filter(function(b) {
+        return validBranchIds[b.id] || validBranchIds[b.name.toLowerCase()];
+      });
+      if (scopedBranches.length > 0) branches = scopedBranches;
+    }
+
+    if (depts && depts.length > 0) {
+      var scopedDepts = depts.filter(function(d) {
+        return validDeptIds[d.id] || validDeptIds[d.name.toLowerCase()];
+      });
+      if (scopedDepts.length > 0) depts = scopedDepts;
+    }
+  }
+
   return {
     branches: branches,
     departments: depts,
@@ -1359,12 +1458,23 @@ function getManagersWithDepartments(optionalToken) {
 
     // Calculate scoped teachers
     var scopedTeacherSet = {};
+    var mgrRoleNorm = _normalizeRole(mgr['role'] || 'مدير');
+    var isDeptMgr = (mgrRoleNorm === 'MANAGER');
+
     for (var a = 0; a < assignments.length; a++) {
       var asgn = assignments[a];
       for (var e = 0; e < activeEmployees.length; e++) {
         var emp = activeEmployees[e];
-        if (emp.deptId === asgn.departmentId && emp.branchId === asgn.branchId) {
-          scopedTeacherSet[emp.id] = true;
+        if (isDeptMgr) {
+          // Department manager: any teacher in this department across all branches
+          if (emp.deptId === asgn.departmentId) {
+            scopedTeacherSet[emp.id] = true;
+          }
+        } else {
+          // Branch manager: teacher must be in this specific branch and department
+          if (emp.deptId === asgn.departmentId && emp.branchId === asgn.branchId) {
+            scopedTeacherSet[emp.id] = true;
+          }
         }
       }
     }
@@ -1632,7 +1742,7 @@ function addManager(p, optionalToken) {
     var roleInput = (p.role || 'مدير').toString().trim();
 
     var norm = _normalizeRole(roleInput);
-    var role = norm === 'ADMIN' ? 'مدير النظام' : (norm === 'MANAGER' ? 'مدير' : 'معلم');
+    var role = norm === 'ADMIN' ? 'مدير النظام' : (norm === 'BRANCH_MANAGER' ? 'مدير فرع' : (norm === 'MANAGER' ? 'مدير' : 'معلم'));
 
     var ss = AppUtils.getDB();
     var sheet = ss.getSheetByName('Managers');

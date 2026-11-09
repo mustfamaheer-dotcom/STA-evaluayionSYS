@@ -145,16 +145,22 @@ function submitEvaluation(payload, optionalToken) {
       // Check manager assignment if manager is restricted in ManagerDepartments
       var mgrRows = AppUtils.sheetToObjects('Managers');
       var currentMgrId = '';
+      var currentMgrRole = '';
       for (var mi = 0; mi < mgrRows.length; mi++) {
         var mEmail = (mgrRows[mi]['email'] || '').toString().toLowerCase().trim();
         var mst = (mgrRows[mi]['status'] || 'Active').toString().trim().toLowerCase();
         if (_emailsMatch(mEmail, callerEmail) && (mst === 'active' || mst === '')) {
           currentMgrId = (mgrRows[mi]['manager_id'] || '').toString().trim();
+          currentMgrRole = (mgrRows[mi]['role'] || '').toString().trim();
           break;
         }
       }
 
       if (currentMgrId) {
+        var normRole = _normalizeRole(currentMgrRole || userRole);
+        var isBranchMgr = (normRole === 'BRANCH_MANAGER');
+        var isDeptMgr   = (normRole === 'MANAGER');
+
         var mdRows = AppUtils.sheetToObjects('ManagerDepartments');
         var managerAssignments = [];
         for (var mdi = 0; mdi < mdRows.length; mdi++) {
@@ -178,14 +184,32 @@ function submitEvaluation(payload, optionalToken) {
             var branchMatches = (!aBranch) || (aBranch === teacherBranchId) || 
                                 (teacherRecord['school_branch'] && teacherRecord['school_branch'].toLowerCase().indexOf(aBranch.toLowerCase()) !== -1);
 
-            if (deptMatches && branchMatches) {
-              hasPermission = true;
-              break;
+            if (isDeptMgr) {
+              // "مدير" (Department Manager): can evaluate his department in ANY branch
+              if (deptMatches) {
+                hasPermission = true;
+                break;
+              }
+            } else if (isBranchMgr) {
+              // "مدير فرع" (Branch Manager): can ONLY evaluate in the branch he manages
+              if (deptMatches && branchMatches && aBranch) {
+                hasPermission = true;
+                break;
+              }
+            } else {
+              if (deptMatches && branchMatches) {
+                hasPermission = true;
+                break;
+              }
             }
           }
 
           if (!hasPermission) {
-            throw new Error('غير مصرح: لا يمكنك تقييم هذا المعلم - ليس في قسمك أو فرعك المحدد');
+            if (isBranchMgr) {
+              throw new Error('غير مصرح: مدير الفرع يمكنه تقييم المعلمين في فرعه وقسمه المحدد فقط');
+            } else {
+              throw new Error('غير مصرح: لا يمكنك تقييم هذا المعلم - ليس في قسمك المحدد');
+            }
           }
         }
       }

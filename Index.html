@@ -1193,7 +1193,7 @@ function loadModule(name){
           +'<div class="card-body"><form id="frm-mgr" onsubmit="submitManager(event)" style="display:flex;flex-direction:column;gap:18px;">'
             +fld('الاسم الكامل','<input type="text" id="mgr-name" class="form-input" required>')
             +fld('البريد الإلكتروني','<input type="email" id="mgr-email" class="form-input" required placeholder="user@sta.edu.eg" dir="ltr">')
-            +fld('الدور','<select id="mgr-role" class="form-input" required><option value="مدير" selected>مدير</option><option value="ADMIN">مدير النظام</option><option value="معلم">معلم</option></select>')
+            +fld('الدور','<select id="mgr-role" class="form-input" required><option value="مدير" selected>مدير (مدير قسم)</option><option value="مدير فرع">مدير فرع</option><option value="ADMIN">مدير النظام</option><option value="معلم">معلم</option></select>')
             +'<button type="submit" id="mgr-btn" class="btn-primary">حفظ المستخدم</button>'
           +'</form></div>'
         +'</div>'
@@ -1668,13 +1668,15 @@ function filterManagerCards(){
     var initials = (mgr.name || mgr.email || '?').substring(0,2).toUpperCase();
     var roleLabel = mgr.role || 'مدير';
     var isSuper = (roleLabel === 'ADMIN' || roleLabel === 'ROLE_SUPER_ADMIN' || roleLabel === 'SUPER_ADMIN' || roleLabel === 'مدير النظام');
+    var isBranchMgr = (roleLabel === 'مدير فرع' || roleLabel === 'BRANCH_MANAGER');
+    var badgeClass = isSuper ? 'badge-excellent' : (isBranchMgr ? 'badge-average' : 'badge-good');
 
     var branchGroups = {};
     (mgr.assignments || []).forEach(function(asgn){
       var bId = asgn.branchId || 'unassigned';
       if(!branchGroups[bId]){
         branchGroups[bId] = {
-          branchName: asgn.branchName || 'فرع غير محدد',
+          branchName: asgn.branchName || (bId === 'all' ? 'جميع الفروع' : 'فرع غير محدد'),
           items: []
         };
       }
@@ -1693,10 +1695,13 @@ function filterManagerCards(){
             +'<div>'
               +'<div style="display:flex;align-items:center;gap:8px;">'
                 +'<span style="font-size:0.95rem;font-weight:800;color:var(--text-primary);">'+esc(mgr.name)+'</span>'
-                +'<span class="badge '+(isSuper?'badge-excellent':'badge-good')+'" style="font-size:0.65rem;">'+esc(roleLabel)+'</span>'
+                +'<span class="badge '+badgeClass+'" style="font-size:0.65rem;">'+esc(roleLabel)+'</span>'
               +'</div>'
               +'<div style="font-size:0.75rem;color:var(--text-muted);margin-top:2px;">'
                 +'<i class="fas fa-envelope" style="margin-left:4px;font-size:0.7rem;"></i>'+esc(mgr.email)
+                +'<span style="margin-right:8px;font-weight:600;font-size:0.7rem;color:'+(isBranchMgr?'#b45309':'#1e40af')+';">'
+                  +(isSuper ? '• صلاحية شاملة' : (isBranchMgr ? '• مدير فرع (تقييم في فرعه وقسمه المحدد فقط)' : '• مدير قسم (تقييم في قسمه عبر أي فرع)'))
+                +'</span>'
               +'</div>'
             +'</div>'
           +'</div>'
@@ -1763,6 +1768,7 @@ function filterManagerCards(){
             +'</span>'
             +'<select id="mda-branch-sel-'+esc(mgr.managerId)+'" class="form-input" style="flex:1;min-width:140px;padding:7px 10px;font-size:0.78rem;" onchange="onMdaBranchChange(\''+esc(mgr.managerId)+'\')">'
               +'<option value="">— اختر الفرع —</option>'
+              +(!isBranchMgr ? '<option value="all">★ جميع الفروع ★</option>' : '')
               +_mdaBranches.map(function(b){ return '<option value="'+esc(b.branch_id)+'">'+esc(b.branch_name)+'</option>'; }).join('')
             +'</select>'
             +'<select id="mda-dept-sel-'+esc(mgr.managerId)+'" class="form-input" style="flex:1;min-width:140px;padding:7px 10px;font-size:0.78rem;">'
@@ -1786,7 +1792,7 @@ function onMdaBranchChange(mgrId){
   if(!branchSel || !deptSel) return;
 
   var selectedBranchId = branchSel.value;
-  if(!selectedBranchId){
+  if(!selectedBranchId || selectedBranchId === 'all'){
     deptSel.innerHTML = '<option value="">— اختر القسم —</option>' + _mdaDepts.map(function(d){ return '<option value="'+esc(d.department_id)+'">'+esc(d.department_name)+'</option>'; }).join('');
     return;
   }
