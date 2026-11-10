@@ -319,9 +319,12 @@ function _normalizeRole(rawRole) {
     return 'ADMIN';
   }
 
-  // Branch Manager (MUST precede general manager check)
+  // Branch Manager / Senior (MUST precede general manager check)
   if (upper === 'BRANCH_MANAGER' || upper === 'BRANCH-MANAGER' || upper === 'BRANCHMANAGER' ||
       upper.indexOf('BRANCH') !== -1 ||
+      upper === 'SENIOR' || upper.indexOf('SENIOR') !== -1 ||
+      str === 'سينيور' || str.indexOf('سينيور') !== -1 ||
+      str === 'رئيس قسم' || str.indexOf('رئيس قسم') !== -1 ||
       str === 'مدير فرع' || str.indexOf('مدير فرع') !== -1 ||
       str === 'مدير الفرع' || str.indexOf('مدير الفرع') !== -1) {
     return 'BRANCH_MANAGER';
@@ -379,7 +382,7 @@ function _resolveRole(emailLower) {
 function _getRoleLabel(role) {
   var norm = _normalizeRole(role);
   if (norm === 'ADMIN') return 'مدير النظام';
-  if (norm === 'BRANCH_MANAGER') return 'مدير فرع';
+  if (norm === 'BRANCH_MANAGER') return (role && role.toString().indexOf('فرع') !== -1) ? 'مدير فرع' : 'سينيور';
   if (norm === 'MANAGER') return 'مدير';
   return 'معلم';
 }

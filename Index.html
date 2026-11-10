@@ -1193,7 +1193,7 @@ function loadModule(name){
           +'<div class="card-body"><form id="frm-mgr" onsubmit="submitManager(event)" style="display:flex;flex-direction:column;gap:18px;">'
             +fld('الاسم الكامل','<input type="text" id="mgr-name" class="form-input" required>')
             +fld('البريد الإلكتروني','<input type="email" id="mgr-email" class="form-input" required placeholder="user@sta.edu.eg" dir="ltr">')
-            +fld('الدور','<select id="mgr-role" class="form-input" required><option value="مدير" selected>مدير (مدير قسم)</option><option value="مدير فرع">مدير فرع</option><option value="ADMIN">مدير النظام</option><option value="معلم">معلم</option></select>')
+            +fld('الدور','<select id="mgr-role" class="form-input" required><option value="سينيور" selected>سينيور (تقييم في فرعه وقسمه المحدد فقط)</option><option value="مدير">مدير (تقييم في قسمه عبر أكثر من فرع)</option><option value="ADMIN">مدير النظام</option><option value="معلم">معلم</option></select>')
             +'<button type="submit" id="mgr-btn" class="btn-primary">حفظ المستخدم</button>'
           +'</form></div>'
         +'</div>'
@@ -1668,7 +1668,7 @@ function filterManagerCards(){
     var initials = (mgr.name || mgr.email || '?').substring(0,2).toUpperCase();
     var roleLabel = mgr.role || 'مدير';
     var isSuper = (roleLabel === 'ADMIN' || roleLabel === 'ROLE_SUPER_ADMIN' || roleLabel === 'SUPER_ADMIN' || roleLabel === 'مدير النظام');
-    var isBranchMgr = (roleLabel === 'مدير فرع' || roleLabel === 'BRANCH_MANAGER' || mgr.isBranchManager || (mgr.name && mgr.name.toLowerCase().indexOf('branch') !== -1) || (mgr.assignments && mgr.assignments.length > 0 && mgr.assignments.every(function(a){ return a.branchId && a.branchId !== 'all'; })));
+    var isBranchMgr = (roleLabel === 'سينيور' || roleLabel === 'SENIOR' || roleLabel === 'مدير فرع' || roleLabel === 'BRANCH_MANAGER' || mgr.isBranchManager || (mgr.name && mgr.name.toLowerCase().indexOf('branch') !== -1) || (mgr.assignments && mgr.assignments.length > 0 && mgr.assignments.every(function(a){ return a.branchId && a.branchId !== 'all'; })));
     var badgeClass = isSuper ? 'badge-excellent' : (isBranchMgr ? 'badge-average' : 'badge-good');
 
     var branchGroups = {};
@@ -1695,17 +1695,17 @@ function filterManagerCards(){
             +'<div>'
               +'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">'
                 +'<span style="font-size:0.95rem;font-weight:800;color:var(--text-primary);">'+esc(mgr.name)+'</span>'
-                +'<span class="badge '+badgeClass+'" style="font-size:0.65rem;">'+(isSuper ? 'مدير النظام' : (isBranchMgr ? 'مدير فرع' : 'مدير قسم'))+'</span>'
+                +'<span class="badge '+badgeClass+'" style="font-size:0.65rem;">'+(isSuper ? 'مدير النظام' : (isBranchMgr ? ((mgr.role && mgr.role.indexOf('فرع') !== -1) ? 'مدير فرع' : 'سينيور') : 'مدير'))+'</span>'
                 +'<select class="form-input" style="font-size:0.68rem;padding:2px 8px;width:auto;height:24px;border-radius:6px;cursor:pointer;" onchange="onManagerRoleChange(\''+esc(mgr.managerId)+'\', this.value)" title="تغيير دور المدير">'
-                  +'<option value="مدير فرع" '+(isBranchMgr && !isSuper ? 'selected' : '')+'>مدير فرع</option>'
-                  +'<option value="مدير" '+(!isBranchMgr && !isSuper ? 'selected' : '')+'>مدير قسم</option>'
+                  +'<option value="سينيور" '+(isBranchMgr && !isSuper ? 'selected' : '')+'>سينيور (فرع محدد)</option>'
+                  +'<option value="مدير" '+(!isBranchMgr && !isSuper ? 'selected' : '')+'>مدير (أكثر من فرع)</option>'
                   +'<option value="ADMIN" '+(isSuper ? 'selected' : '')+'>مدير النظام</option>'
                 +'</select>'
               +'</div>'
               +'<div style="font-size:0.75rem;color:var(--text-muted);margin-top:2px;">'
                 +'<i class="fas fa-envelope" style="margin-left:4px;font-size:0.7rem;"></i>'+esc(mgr.email)
                 +'<span style="margin-right:8px;font-weight:600;font-size:0.7rem;color:'+(isBranchMgr?'#b45309':'#1e40af')+';">'
-                  +(isSuper ? '• صلاحية شاملة' : (isBranchMgr ? '• مدير فرع (تقييم في فرعه وقسمه المحدد فقط)' : '• مدير قسم (تقييم في قسمه عبر أي فرع)'))
+                  +(isSuper ? '• صلاحية شاملة' : (isBranchMgr ? '• سينيور (تقييم في فرعه وقسمه المحدد فقط)' : '• مدير (تقييم في قسمه عبر أكثر من فرع)'))
                 +'</span>'
               +'</div>'
             +'</div>'

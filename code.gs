@@ -1637,7 +1637,7 @@ function getManagersWithDepartments(optionalToken) {
       }
     }
 
-    var displayRole = (mgrRoleNorm === 'ADMIN') ? 'مدير النظام' : (isBranchMgr ? 'مدير فرع' : 'مدير');
+    var displayRole = (mgrRoleNorm === 'ADMIN') ? 'مدير النظام' : (isBranchMgr ? (rawRole.indexOf('فرع') !== -1 ? 'مدير فرع' : 'سينيور') : 'مدير');
     result.push({
       managerId:          mgrId,
       name:               mgrName,
@@ -1664,7 +1664,7 @@ function updateManagerRole(managerId, newRole, optionalToken) {
   if (!mId) return { success: false, error: 'معرف المدير مطلوب' };
 
   var norm = _normalizeRole(newRole);
-  var roleLabel = norm === 'ADMIN' ? 'مدير النظام' : (norm === 'BRANCH_MANAGER' ? 'مدير فرع' : 'مدير');
+  var roleLabel = norm === 'ADMIN' ? 'مدير النظام' : (norm === 'BRANCH_MANAGER' ? (newRole.toString().indexOf('فرع') !== -1 ? 'مدير فرع' : 'سينيور') : 'مدير');
 
   var ss = AppUtils.getDB();
   var sheet = ss.getSheetByName('Managers');
@@ -1940,7 +1940,7 @@ function addManager(p, optionalToken) {
     var roleInput = (p.role || 'مدير').toString().trim();
 
     var norm = _normalizeRole(roleInput);
-    var role = norm === 'ADMIN' ? 'مدير النظام' : (norm === 'BRANCH_MANAGER' ? 'مدير فرع' : (norm === 'MANAGER' ? 'مدير' : 'معلم'));
+    var role = norm === 'ADMIN' ? 'مدير النظام' : (norm === 'BRANCH_MANAGER' ? (roleInput.toString().indexOf('فرع') !== -1 ? 'مدير فرع' : 'سينيور') : (norm === 'MANAGER' ? 'مدير' : 'معلم'));
 
     var ss = AppUtils.getDB();
     var sheet = ss.getSheetByName('Managers');
